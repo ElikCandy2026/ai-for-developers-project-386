@@ -1,0 +1,37 @@
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never
+
+spring:
+  application:
+    name: call-booking
+  sql:
+    init:
+      mode: always
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+app:
+  database-path: ${DB_PATH:./data/call-booking.db}
+  seed-demo-data: ${SEED_DEMO_DATA:true}
+  owner:
+    id: owner_anna
+    display-name: Анна Соколова
+    email: anna.sokolova@callbook.local
+    timezone: Europe/Moscow
+    working-days:
+      - MONDAY
+      - TUESDAY
+      - WEDNESDAY
+      - THURSDAY
+      - FRIDAY
+    workday-start: "10:00"
+    workday-end: "19:00"
+    slot-step-minutes: 30
+    booking-window-days: 14
+    booking-window-start-offset-days: 0
+    minimum-notice-minutes: 0
+    minimum-duration-minutes: 15
+    maximum-duration-minutes: 240

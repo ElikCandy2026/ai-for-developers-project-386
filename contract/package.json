@@ -1,0 +1,19 @@
+{
+  "name": "call-booking-contract",
+  "version": "1.0.0",
+  "description": "TypeSpec contract for the Call Booking API",
+  "main": "index.js",
+  "scripts": {
+    "compile": "tsp compile .",
+    "watch": "tsp compile . --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@typespec/compiler": "^1.17.0",
+    "@typespec/http": "^1.17.0",
+    "@typespec/openapi3": "^1.17.0"
+  },
+  "private": true
+}

@@ -1,0 +1,522 @@
+openapi: 3.0.0
+info:
+  title: Call Booking API
+  version: 1.0.0
+  description: |-
+    API сервиса «Запись на звонок».
+
+    Владелец календаря один и задан заранее. Авторизации нет: гость и владелец
+    работают с одним и тем же API. Все моменты времени передаются в UTC
+    (ISO 8601, например `2026-11-09T07:00:00Z`). Локальное время и границы
+    рабочего дня считаются в часовом поясе владельца.
+
+    Правила записи:
+    - часовой пояс владельца: `Europe/Moscow` (UTC+3, без перехода на летнее время);
+    - рабочие дни: понедельник–пятница, 10:00–19:00 по времени владельца;
+    - окно записи: 14 календарных дней, начиная с сегодняшнего дня по времени
+    владельца (смещается каждый календарный день);
+    - шаг доступных стартов: 30 минут от начала рабочего дня;
+    - длительность слота равна длительности типа встречи (15–240 минут, кратно 15);
+    - интервалы встреч не пересекаются, в том числе частично и между разными
+    типами встреч; встреча может начинаться ровно в момент окончания другой.
+tags:
+  - name: Owner
+  - name: Meeting types
+  - name: Availability
+  - name: Bookings
+paths:
+  /api/bookings:
+    post:
+      operationId: createBooking
+      description: |-
+        Записать гостя на свободный слот. Сервер сам вычисляет окончание встречи,
+        проверяет окно, рабочие часы, шаг слотов и пересечения. Два одновременных
+        запроса на один слот не могут оба завершиться успехом.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: Ошибка валидации запроса.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '404':
+          description: Ресурс не найден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '409':
+          description: 'Слот недоступен: пересекается с другой встречей или вышел из окна записи.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictError'
+      tags:
+        - Bookings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+    get:
+      operationId: listBookings
+      description: |-
+        Предстоящие встречи всех типов, упорядоченные по началу.
+        По умолчанию возвращаются только встречи, которые ещё не начались.
+      parameters:
+        - name: includePast
+          in: query
+          required: false
+          schema:
+            type: boolean
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+      tags:
+        - Bookings
+  /api/meeting-types:
+    get:
+      operationId: listMeetingTypes
+      description: Список типов встреч владельца в порядке создания.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeetingType'
+      tags:
+        - Meeting types
+    post:
+      operationId: createMeetingType
+      description: Создать новый тип встречи.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '400':
+          description: Ошибка валидации запроса.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+      tags:
+        - Meeting types
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMeetingTypeRequest'
+  /api/meeting-types/{meetingTypeId}:
+    get:
+      operationId: getMeetingType
+      description: Получить тип встречи по идентификатору.
+      parameters:
+        - name: meetingTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '404':
+          description: Ресурс не найден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+      tags:
+        - Meeting types
+  /api/meeting-types/{meetingTypeId}/availability:
+    get:
+      operationId: getAvailability
+      description: |-
+        Свободные слоты типа встречи на актуальное 14-дневное окно.
+        Окно начинается с сегодняшнего дня по времени владельца.
+      parameters:
+        - name: meetingTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Availability'
+        '404':
+          description: Ресурс не найден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+      tags:
+        - Availability
+  /api/owner:
+    get:
+      operationId: getOwner
+      description: Данные единственного владельца календаря и правила записи.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Owner'
+      tags:
+        - Owner
+components:
+  schemas:
+    Availability:
+      type: object
+      required:
+        - meetingType
+        - timezone
+        - windowStartDate
+        - windowEndDate
+        - slotStepMinutes
+        - durationMinutes
+        - days
+      properties:
+        meetingType:
+          $ref: '#/components/schemas/MeetingTypeSummary'
+        timezone:
+          type: string
+        windowStartDate:
+          type: string
+          format: date
+          description: Первый день окна записи включительно.
+        windowEndDate:
+          type: string
+          format: date
+          description: Последний день окна записи включительно.
+        slotStepMinutes:
+          type: integer
+          format: int32
+          description: Шаг стартов в минутах.
+        durationMinutes:
+          type: integer
+          format: int32
+          description: Длительность слота в минутах.
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityDay'
+          description: Все дни окна, включая выходные и дни без свободных слотов.
+      description: Календарь свободных слотов для выбранного типа встречи.
+    AvailabilityDay:
+      type: object
+      required:
+        - date
+        - weekday
+        - slots
+      properties:
+        date:
+          type: string
+          format: date
+          description: Локальная дата владельца.
+        weekday:
+          $ref: '#/components/schemas/DayOfWeek'
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+          description: Свободные слоты дня. Пустой массив, если записаться нельзя.
+      description: День окна записи.
+    BadRequestError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      description: Ошибка валидации запроса.
+    Booking:
+      type: object
+      required:
+        - id
+        - meetingType
+        - guestName
+        - guestEmail
+        - start
+        - end
+        - createdAt
+      properties:
+        id:
+          type: string
+        meetingType:
+          $ref: '#/components/schemas/MeetingTypeSummary'
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+        notes:
+          type: string
+        start:
+          type: string
+          format: date-time
+          description: Начало встречи в UTC.
+        end:
+          type: string
+          format: date-time
+          description: Окончание встречи в UTC.
+        createdAt:
+          type: string
+          format: date-time
+          description: Момент создания записи в UTC.
+      description: Созданная запись.
+    BookingRules:
+      type: object
+      required:
+        - timezone
+        - workingDays
+        - workdayStart
+        - workdayEnd
+        - slotStepMinutes
+        - bookingWindowDays
+        - bookingWindowStartOffsetDays
+        - minimumNoticeMinutes
+        - minimumDurationMinutes
+        - maximumDurationMinutes
+      properties:
+        timezone:
+          type: string
+          description: IANA-часовой пояс владельца.
+        workingDays:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayOfWeek'
+          description: Рабочие дни владельца.
+        workdayStart:
+          type: string
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: Начало рабочего дня в формате HH:mm по часовому поясу владельца.
+        workdayEnd:
+          type: string
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: Окончание рабочего дня в формате HH:mm по часовому поясу владельца.
+        slotStepMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Шаг доступных стартов в минутах.
+        bookingWindowDays:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Длина окна записи в календарных днях.
+        bookingWindowStartOffsetDays:
+          type: integer
+          format: int32
+          minimum: 0
+          description: 'Сдвиг начала окна от сегодняшнего дня: 0 — сегодня, 1 — завтра.'
+        minimumNoticeMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Минимальный запас времени до начала встречи в минутах.
+        minimumDurationMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Минимальная длительность встречи в минутах.
+        maximumDurationMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Максимальная длительность встречи в минутах.
+      description: Правила календаря владельца. Возвращаются клиенту, чтобы интерфейс не дублировал их.
+    ConflictError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      description: 'Слот недоступен: пересекается с другой встречей или вышел из окна записи.'
+    CreateBookingRequest:
+      type: object
+      required:
+        - meetingTypeId
+        - start
+        - guestName
+        - guestEmail
+      properties:
+        meetingTypeId:
+          type: string
+        start:
+          type: string
+          format: date-time
+          description: Начало встречи в UTC. Должно совпадать с одним из свободных слотов.
+        guestName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        guestEmail:
+          type: string
+          minLength: 3
+          maxLength: 254
+          format: email
+        notes:
+          type: string
+          maxLength: 1000
+      description: Запрос на запись на звонок.
+    CreateMeetingTypeRequest:
+      type: object
+      required:
+        - name
+        - description
+        - durationMinutes
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        description:
+          type: string
+          maxLength: 1000
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 15
+          maximum: 240
+          description: 'Длительность в минутах: 15–240, кратно 15.'
+      description: Запрос на создание типа встречи.
+    DayOfWeek:
+      type: string
+      enum:
+        - MONDAY
+        - TUESDAY
+        - WEDNESDAY
+        - THURSDAY
+        - FRIDAY
+        - SATURDAY
+        - SUNDAY
+      description: День недели в ISO-8601 (понедельник = MONDAY).
+    MeetingType:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - durationMinutes
+        - createdAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Длительность встречи в минутах.
+        createdAt:
+          type: string
+          format: date-time
+          description: Момент создания в UTC.
+      description: Тип встречи, созданный владельцем.
+    MeetingTypeSummary:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+      description: Краткая информация о типе встречи, встроенная в запись.
+    NotFoundError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      description: Ресурс не найден.
+    Owner:
+      type: object
+      required:
+        - id
+        - displayName
+        - email
+        - rules
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        rules:
+          $ref: '#/components/schemas/BookingRules'
+      description: Владелец календаря.
+    Slot:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: Начало слота в UTC.
+        end:
+          type: string
+          format: date-time
+          description: Окончание слота в UTC.
+      description: Свободный слот записи.
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+    variables: {}

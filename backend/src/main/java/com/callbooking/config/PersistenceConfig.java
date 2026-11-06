@@ -1,0 +1,35 @@
+package com.callbooking.config;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import javax.sql.DataSource;
+
+import org.sqlite.SQLiteConfig;
+import org.sqlite.SQLiteDataSource;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class PersistenceConfig {
+
+    @Bean
+    public DataSource dataSource(AppProperties properties) throws IOException {
+        Path databaseFile = Path.of(properties.databasePath()).toAbsolutePath();
+        Path parent = databaseFile.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+
+        SQLiteConfig config = new SQLiteConfig();
+        config.enforceForeignKeys(true);
+        config.setBusyTimeout(5_000);
+        config.setJournalMode(SQLiteConfig.JournalMode.WAL);
+        config.setSynchronous(SQLiteConfig.SynchronousMode.NORMAL);
+
+        SQLiteDataSource dataSource = new SQLiteDataSource(config);
+        dataSource.setUrl("jdbc:sqlite:" + databaseFile);
+        return dataSource;
+    }
+}
