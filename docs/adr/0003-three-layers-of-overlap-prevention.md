@@ -9,3 +9,6 @@ a clean `409` instead of a database error, the query states the business rule wh
 is readable, and the trigger survives a second instance or a code path that bypasses
 the service. Removing the lock because "the trigger exists" would turn every concurrent
 collision into a driver-level exception.
+
+**Superseded in part by ADR-0011:** the fair lock and the transaction now live inside
+the persistence module; the three independent defence layers remain.
