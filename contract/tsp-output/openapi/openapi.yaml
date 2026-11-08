@@ -58,6 +58,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConflictError'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalError'
       tags:
         - Bookings
       requestBody:
@@ -87,6 +93,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Booking'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalError'
       tags:
         - Bookings
   /api/meeting-types:
@@ -103,6 +115,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/MeetingType'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalError'
       tags:
         - Meeting types
     post:
@@ -122,6 +140,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestError'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalError'
       tags:
         - Meeting types
       requestBody:
@@ -153,6 +177,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalError'
       tags:
         - Meeting types
   /api/meeting-types/{meetingTypeId}/availability:
@@ -180,6 +210,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundError'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalError'
       tags:
         - Availability
   /api/owner:
@@ -194,6 +230,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Owner'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalError'
       tags:
         - Owner
 components:
@@ -254,6 +296,13 @@ components:
             $ref: '#/components/schemas/Slot'
           description: Свободные слоты дня. Пустой массив, если записаться нельзя.
       description: День окна записи.
+    BadRequestCode:
+      type: string
+      enum:
+        - VALIDATION_FAILED
+        - MALFORMED_REQUEST
+        - INVALID_DURATION
+      description: Коды ошибок запроса (400).
     BadRequestError:
       type: object
       required:
@@ -261,7 +310,7 @@ components:
         - message
       properties:
         code:
-          type: string
+          $ref: '#/components/schemas/BadRequestCode'
         message:
           type: string
       description: Ошибка валидации запроса.
@@ -360,6 +409,12 @@ components:
           minimum: 1
           description: Максимальная длительность встречи в минутах.
       description: Правила календаря владельца. Возвращаются клиенту, чтобы интерфейс не дублировал их.
+    ConflictCode:
+      type: string
+      enum:
+        - SLOT_UNAVAILABLE
+        - SLOT_TAKEN
+      description: Коды конфликтов (409).
     ConflictError:
       type: object
       required:
@@ -367,7 +422,7 @@ components:
         - message
       properties:
         code:
-          type: string
+          $ref: '#/components/schemas/ConflictCode'
         message:
           type: string
       description: 'Слот недоступен: пересекается с другой встречей или вышел из окна записи.'
@@ -381,6 +436,7 @@ components:
       properties:
         meetingTypeId:
           type: string
+          pattern: .*\S.*
         start:
           type: string
           format: date-time
@@ -389,10 +445,12 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+          pattern: .*\S.*
         guestEmail:
           type: string
           minLength: 3
           maxLength: 254
+          pattern: ^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$
           format: email
         notes:
           type: string
@@ -409,6 +467,7 @@ components:
           type: string
           minLength: 1
           maxLength: 80
+          pattern: .*\S.*
         description:
           type: string
           maxLength: 1000
@@ -430,6 +489,22 @@ components:
         - SATURDAY
         - SUNDAY
       description: День недели в ISO-8601 (понедельник = MONDAY).
+    InternalError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          $ref: '#/components/schemas/InternalErrorCode'
+        message:
+          type: string
+      description: Внутренняя ошибка сервера.
+    InternalErrorCode:
+      type: string
+      enum:
+        - INTERNAL_ERROR
+      description: Коды внутренних ошибок (500).
     MeetingType:
       type: object
       required:
@@ -473,6 +548,11 @@ components:
           type: integer
           format: int32
       description: Краткая информация о типе встречи, встроенная в запись.
+    NotFoundCode:
+      type: string
+      enum:
+        - MEETING_TYPE_NOT_FOUND
+      description: Коды ошибок «ресурс не найден» (404).
     NotFoundError:
       type: object
       required:
@@ -480,7 +560,7 @@ components:
         - message
       properties:
         code:
-          type: string
+          $ref: '#/components/schemas/NotFoundCode'
         message:
           type: string
       description: Ресурс не найден.

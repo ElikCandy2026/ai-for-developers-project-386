@@ -10,26 +10,24 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.regex.Pattern;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.callbooking.api.ApiException;
 import com.callbooking.api.ApiTime;
 import com.callbooking.api.model.Booking;
 import com.callbooking.api.model.CreateBookingRequest;
 import com.callbooking.api.model.MeetingType;
+import com.callbooking.application.ApplicationErrorCode;
+import com.callbooking.application.ApplicationException;
 import com.callbooking.config.AppProperties;
 import com.callbooking.persistence.BookingRepository;
 import com.callbooking.persistence.BookingRepository.BookingRow;
 
 @Service
 public class BookingService {
-
-    private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     private final MeetingTypeService meetingTypeService;
     private final BookingRepository bookingRepository;
@@ -62,9 +60,7 @@ public class BookingService {
             return transactionTemplate.execute(status -> createInsideTransaction(request));
         } catch (DataAccessException exception) {
             if (isOverlapConflict(exception)) {
-                throw ApiException.conflict(
-                        "SLOT_TAKEN",
-                        "Это время уже занято другой встречей. Выберите другой слот.");
+                throw slotTaken();
             }
             throw exception;
         } finally {
@@ -77,26 +73,11 @@ public class BookingService {
     }
 
     private Booking createInsideTransaction(CreateBookingRequest request) {
-        if (request == null || request.getMeetingTypeId() == null || request.getMeetingTypeId().isBlank()) {
-            throw ApiException.badRequest("INVALID_MEETING_TYPE", "Не указан тип встречи.");
-        }
-
-        String guestName = request.getGuestName() == null ? "" : request.getGuestName().trim();
-        if (guestName.isEmpty()) {
-            throw ApiException.badRequest("INVALID_GUEST_NAME", "Имя гостя не может быть пустым.");
-        }
-        if (guestName.length() > 120) {
-            throw ApiException.badRequest("INVALID_GUEST_NAME", "Имя гостя не может быть длиннее 120 символов.");
-        }
-
-        String guestEmail = request.getGuestEmail() == null ? "" : request.getGuestEmail().trim();
-        if (!EMAIL.matcher(guestEmail).matches() || guestEmail.length() > 254) {
-            throw ApiException.badRequest("INVALID_GUEST_EMAIL", "Укажите корректный адрес электронной почты.");
-        }
-
-        if (request.getStart() == null) {
-            throw ApiException.badRequest("INVALID_START", "Не указано время начала встречи.");
-        }
+        // Syntax (presence, lengths, patterns, email) belongs to Bean Validation
+        // generated from the contract. This method owns only the scheduling
+        // semantics and normalisation.
+        String guestName = trim(request.getGuestName());
+        String guestEmail = trim(request.getGuestEmail());
 
         MeetingType meetingType = meetingTypeService.get(request.getMeetingTypeId());
         AppProperties.Owner owner = properties.owner();
@@ -141,17 +122,12 @@ public class BookingService {
         long startMs = start.toEpochMilli();
         long endMs = start.plus(Duration.ofMinutes(durationMinutes)).toEpochMilli();
         if (bookingRepository.existsOverlap(startMs, endMs)) {
-            throw ApiException.conflict(
-                    "SLOT_TAKEN",
-                    "Это время уже занято другой встречей. Выберите другой слот.");
+            throw slotTaken();
         }
 
         String notes = request.getNotes() == null ? null : request.getNotes().trim();
         if (notes != null && notes.isEmpty()) {
             notes = null;
-        }
-        if (notes != null && notes.length() > 1000) {
-            throw ApiException.badRequest("INVALID_NOTES", "Комментарий не может быть длиннее 1000 символов.");
         }
 
         Instant createdAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
@@ -178,10 +154,16 @@ public class BookingService {
         return booking;
     }
 
-    private ApiException unavailable() {
-        return ApiException.conflict(
-                "SLOT_UNAVAILABLE",
+    private ApplicationException unavailable() {
+        return ApplicationException.of(
+                ApplicationErrorCode.SLOT_UNAVAILABLE,
                 "Слот недоступен. Выберите свободное время в пределах окна записи.");
+    }
+
+    private ApplicationException slotTaken() {
+        return ApplicationException.of(
+                ApplicationErrorCode.SLOT_TAKEN,
+                "Это время уже занято другой встречей. Выберите другой слот.");
     }
 
     private boolean isOverlapConflict(Throwable exception) {
@@ -192,5 +174,9 @@ public class BookingService {
             }
         }
         return false;
+    }
+
+    private static String trim(String value) {
+        return value == null ? "" : value.trim();
     }
 }
