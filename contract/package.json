@@ -4,7 +4,7 @@
   "description": "TypeSpec contract for the Call Booking API",
   "main": "index.js",
   "scripts": {
-    "compile": "tsp compile .",
+    "compile": "tsp compile . --warn-as-error",
     "watch": "tsp compile . --watch"
   },
   "keywords": [],
@@ -15,5 +15,8 @@
     "@typespec/http": "^1.17.0",
     "@typespec/openapi3": "^1.17.0"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  }
 }

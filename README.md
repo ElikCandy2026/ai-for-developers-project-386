@@ -87,6 +87,8 @@ TypeScript SDK, который использует фронтенд.
   (`sqlite-jdbc`), Maven.
 - **Frontend:** TypeScript, React 19, Vite. Клиентский SDK генерируется из OpenAPI
   через `@hey-api/openapi-ts` — для TypeScript есть готовый генератор клиента.
+- **Сборка:** Node 22 (зафиксирован в `.nvmrc` и `engines.node`) и Java 21.
+  Vite собирает фронтенд в `frontend/dist`, Maven упаковывает его в jar.
 - **Хранилище:** SQLite, файл `./data/call-booking.db` по умолчанию.
 
 Серверные интерфейсы и DTO не написаны руками: OpenAPI Generator (`spring`,
@@ -105,7 +107,7 @@ TypeScript SDK, который использует фронтенд.
 │   └── tsp-output/openapi/
 │       └── openapi.yaml          сгенерированная спецификация (в репозитории)
 ├── backend/                      Spring Boot + SQLite
-│   ├── pom.xml                   генерация серверных интерфейсов из OpenAPI
+│   ├── pom.xml                   генерация серверных интерфейсов и упаковка frontend
 │   └── src/
 │       ├── main/java/com/callbooking/
 │       │   ├── api/              контроллер и обработка ошибок
@@ -114,15 +116,17 @@ TypeScript SDK, который использует фронтенд.
 │       │   └── persistence/      JDBC-репозитории
 │       ├── main/resources/
 │       │   ├── application.yml
-│       │   ├── schema.sql
-│       │   └── static/           собранный фронтенд
+│       │   └── schema.sql
 │       └── test/                 11 интеграционных тестов
 ├── frontend/                     React + TypeScript + Vite
 │   ├── openapi-ts.config.ts      генерация SDK
+│   ├── dist/                     собранная статика (не в git)
 │   └── src/
 │       ├── api/generated/        сгенерированный SDK (в репозитории)
 │       ├── components/           гость, кабинет владельца, диалог записи
 │       └── lib/                  форматирование дат и ошибок
+├── .github/workflows/ci.yml      make install && make verify
+├── .nvmrc                        версия Node для генерации и сборки
 ├── docs/                         скриншоты
 ├── Makefile
 └── README.md
@@ -180,9 +184,17 @@ mvn generate-sources
 `getOwner`, `listMeetingTypes`, `getAvailability`, `createBooking` и модели
 `Owner`, `MeetingType`, `Availability`, `Booking` в `frontend/src/api/generated`.
 
+TypeSpec — единственный источник истины. OpenAPI и TypeScript SDK коммитятся в
+репозиторий, поэтому backend собирается без Node, а frontend — без TypeSpec.
+`tsp compile` запускается с `--warn-as-error`. Свежесть сгенерированных файлов
+проверяет `make check-generated`: он перегенерирует контракт и SDK и падает, если
+в `contract/tsp-output` или `frontend/src/api/generated` появились изменённые,
+новые или удалённые файлы. Посторонние изменения он игнорирует.
+
 ## Установка
 
-Нужны JDK 21+, Maven 3.9+, Node.js 22+ и npm.
+Нужны JDK 21, Maven 3.9+, Node.js 22 и npm. Версия Node зафиксирована в `.nvmrc`
+(`nvm use`), а также в `engines.node` пакетов `contract` и `frontend`.
 
 ```bash
 git clone https://github.com/ElikCandy2026/ai-for-developers-project-386.git
@@ -202,8 +214,10 @@ make build
 make run
 ```
 
-Открыть <http://localhost:8080>. Frontend собран в
-`backend/src/main/resources/static` и раздаётся Spring Boot.
+`make build` перегенерирует OpenAPI и SDK, собирает фронтенд в `frontend/dist` и
+упаковывает его Maven-ом в jar (`target/classes/static`). `make run` сначала
+выполняет ту же сборку, затем запускает приложение. Открыть
+<http://localhost:8080> — Spring Boot раздаёт фронтенд из jar.
 
 Без `make`:
 
@@ -213,6 +227,10 @@ cd frontend && npm ci && npm run generate:api && npm run build && cd ..
 cd backend && mvn -DskipTests package
 java -jar target/call-booking-1.0.0.jar
 ```
+
+Собранная статика не хранится в git: `frontend/dist` и `backend/target`
+игнорируются, а `backend/src/main/resources/static` создаётся только в выводе
+сборки.
 
 При первом запуске база создаётся автоматически. По умолчанию добавляются три
 демонстрационных типа встреч, если таблица типов пуста. Отключить:
@@ -272,6 +290,23 @@ mvn test
 ```bash
 make verify
 ```
+
+`make verify` — единственная точка входа для проверки. Он выполняет
+`make check-generated` (свежесть OpenAPI/SDK), собирает фронтенд и запускает
+backend-тесты. CI использует Node 22 и Java 21 и запускает ту же команду
+(`make install && make verify`), поэтому «зелено локально» означает «зелено в CI».
+
+| Команда | Что делает |
+| --- | --- |
+| `make install` | `npm ci` в `contract` и `frontend` |
+| `make generate` | TypeSpec → OpenAPI → TypeScript SDK |
+| `make check-generated` | падает при расхождении OpenAPI/SDK с контрактом |
+| `make frontend` | сборка фронтенда в `frontend/dist` |
+| `make test` | backend-тесты (без сборки фронтенда) |
+| `make build` | генерация, фронтенд и jar с фронтендом внутри |
+| `make verify` | `check-generated` + сборка фронтенда + тесты |
+| `make run` | сборка и запуск приложения |
+| `make clean` | удаляет `backend/target` и `frontend/dist` |
 
 ## Как обеспечена защита от двойной записи
 
