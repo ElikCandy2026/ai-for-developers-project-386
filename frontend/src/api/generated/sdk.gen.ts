@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetMeetingTypeData, GetMeetingTypeErrors, GetMeetingTypeResponses, GetOwnerData, GetOwnerResponses, ListBookingsData, ListBookingsResponses, ListMeetingTypesData, ListMeetingTypesResponses } from './types.gen';
+import type { CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetMeetingTypeData, GetMeetingTypeErrors, GetMeetingTypeResponses, GetOwnerData, GetOwnerErrors, GetOwnerResponses, ListBookingsData, ListBookingsErrors, ListBookingsResponses, ListMeetingTypesData, ListMeetingTypesErrors, ListMeetingTypesResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -22,7 +22,7 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * Предстоящие встречи всех типов, упорядоченные по началу.
  * По умолчанию возвращаются только встречи, которые ещё не начались.
  */
-export const listBookings = <ThrowOnError extends boolean = false>(options?: Options<ListBookingsData, ThrowOnError>): RequestResult<ListBookingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListBookingsResponses, unknown, ThrowOnError>({ url: '/api/bookings', ...options });
+export const listBookings = <ThrowOnError extends boolean = false>(options?: Options<ListBookingsData, ThrowOnError>): RequestResult<ListBookingsResponses, ListBookingsErrors, ThrowOnError> => (options?.client ?? client).get<ListBookingsResponses, ListBookingsErrors, ThrowOnError>({ url: '/api/bookings', ...options });
 
 /**
  * Записать гостя на свободный слот. Сервер сам вычисляет окончание встречи,
@@ -41,7 +41,7 @@ export const createBooking = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Список типов встреч владельца в порядке создания.
  */
-export const listMeetingTypes = <ThrowOnError extends boolean = false>(options?: Options<ListMeetingTypesData, ThrowOnError>): RequestResult<ListMeetingTypesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListMeetingTypesResponses, unknown, ThrowOnError>({ url: '/api/meeting-types', ...options });
+export const listMeetingTypes = <ThrowOnError extends boolean = false>(options?: Options<ListMeetingTypesData, ThrowOnError>): RequestResult<ListMeetingTypesResponses, ListMeetingTypesErrors, ThrowOnError> => (options?.client ?? client).get<ListMeetingTypesResponses, ListMeetingTypesErrors, ThrowOnError>({ url: '/api/meeting-types', ...options });
 
 /**
  * Создать новый тип встречи.
@@ -69,4 +69,4 @@ export const getAvailability = <ThrowOnError extends boolean = false>(options: O
 /**
  * Данные единственного владельца календаря и правила записи.
  */
-export const getOwner = <ThrowOnError extends boolean = false>(options?: Options<GetOwnerData, ThrowOnError>): RequestResult<GetOwnerResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetOwnerResponses, unknown, ThrowOnError>({ url: '/api/owner', ...options });
+export const getOwner = <ThrowOnError extends boolean = false>(options?: Options<GetOwnerData, ThrowOnError>): RequestResult<GetOwnerResponses, GetOwnerErrors, ThrowOnError> => (options?.client ?? client).get<GetOwnerResponses, GetOwnerErrors, ThrowOnError>({ url: '/api/owner', ...options });

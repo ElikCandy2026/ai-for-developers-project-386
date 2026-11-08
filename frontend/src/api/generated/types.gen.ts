@@ -48,10 +48,15 @@ export type AvailabilityDay = {
 };
 
 /**
+ * Коды ошибок запроса (400).
+ */
+export type BadRequestCode = 'VALIDATION_FAILED' | 'MALFORMED_REQUEST' | 'INVALID_DURATION';
+
+/**
  * Ошибка валидации запроса.
  */
 export type BadRequestError = {
-    code: string;
+    code: BadRequestCode;
     message: string;
 };
 
@@ -125,10 +130,15 @@ export type BookingRules = {
 };
 
 /**
+ * Коды конфликтов (409).
+ */
+export type ConflictCode = 'SLOT_UNAVAILABLE' | 'SLOT_TAKEN';
+
+/**
  * Слот недоступен: пересекается с другой встречей или вышел из окна записи.
  */
 export type ConflictError = {
-    code: string;
+    code: ConflictCode;
     message: string;
 };
 
@@ -164,6 +174,19 @@ export type CreateMeetingTypeRequest = {
 export type DayOfWeek = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
 
 /**
+ * Внутренняя ошибка сервера.
+ */
+export type InternalError = {
+    code: InternalErrorCode;
+    message: string;
+};
+
+/**
+ * Коды внутренних ошибок (500).
+ */
+export type InternalErrorCode = 'INTERNAL_ERROR';
+
+/**
  * Тип встречи, созданный владельцем.
  */
 export type MeetingType = {
@@ -191,10 +214,15 @@ export type MeetingTypeSummary = {
 };
 
 /**
+ * Коды ошибок «ресурс не найден» (404).
+ */
+export type NotFoundCode = 'MEETING_TYPE_NOT_FOUND';
+
+/**
  * Ресурс не найден.
  */
 export type NotFoundError = {
-    code: string;
+    code: NotFoundCode;
     message: string;
 };
 
@@ -231,6 +259,15 @@ export type ListBookingsData = {
     url: '/api/bookings';
 };
 
+export type ListBookingsErrors = {
+    /**
+     * Внутренняя ошибка сервера.
+     */
+    500: InternalError;
+};
+
+export type ListBookingsError = ListBookingsErrors[keyof ListBookingsErrors];
+
 export type ListBookingsResponses = {
     /**
      * The request has succeeded.
@@ -260,6 +297,10 @@ export type CreateBookingErrors = {
      * Слот недоступен: пересекается с другой встречей или вышел из окна записи.
      */
     409: ConflictError;
+    /**
+     * Внутренняя ошибка сервера.
+     */
+    500: InternalError;
 };
 
 export type CreateBookingError = CreateBookingErrors[keyof CreateBookingErrors];
@@ -279,6 +320,15 @@ export type ListMeetingTypesData = {
     query?: never;
     url: '/api/meeting-types';
 };
+
+export type ListMeetingTypesErrors = {
+    /**
+     * Внутренняя ошибка сервера.
+     */
+    500: InternalError;
+};
+
+export type ListMeetingTypesError = ListMeetingTypesErrors[keyof ListMeetingTypesErrors];
 
 export type ListMeetingTypesResponses = {
     /**
@@ -301,6 +351,10 @@ export type CreateMeetingTypeErrors = {
      * Ошибка валидации запроса.
      */
     400: BadRequestError;
+    /**
+     * Внутренняя ошибка сервера.
+     */
+    500: InternalError;
 };
 
 export type CreateMeetingTypeError = CreateMeetingTypeErrors[keyof CreateMeetingTypeErrors];
@@ -328,6 +382,10 @@ export type GetMeetingTypeErrors = {
      * Ресурс не найден.
      */
     404: NotFoundError;
+    /**
+     * Внутренняя ошибка сервера.
+     */
+    500: InternalError;
 };
 
 export type GetMeetingTypeError = GetMeetingTypeErrors[keyof GetMeetingTypeErrors];
@@ -355,6 +413,10 @@ export type GetAvailabilityErrors = {
      * Ресурс не найден.
      */
     404: NotFoundError;
+    /**
+     * Внутренняя ошибка сервера.
+     */
+    500: InternalError;
 };
 
 export type GetAvailabilityError = GetAvailabilityErrors[keyof GetAvailabilityErrors];
@@ -374,6 +436,15 @@ export type GetOwnerData = {
     query?: never;
     url: '/api/owner';
 };
+
+export type GetOwnerErrors = {
+    /**
+     * Внутренняя ошибка сервера.
+     */
+    500: InternalError;
+};
+
+export type GetOwnerError = GetOwnerErrors[keyof GetOwnerErrors];
 
 export type GetOwnerResponses = {
     /**
