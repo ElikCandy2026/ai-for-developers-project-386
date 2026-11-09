@@ -1,4 +1,4 @@
-import type { DayOfWeek } from '../api/generated';
+import type { DayOfWeek } from '../data/api';
 
 export const WEEKDAY_SHORT: Record<DayOfWeek, string> = {
   MONDAY: 'Пн',

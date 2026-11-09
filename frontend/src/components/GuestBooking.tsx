@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import type { Availability, Booking, MeetingType, Owner, Slot } from '../api/generated';
-import { getAvailability } from '../api/generated';
-import { apiErrorMessage } from '../lib/apiError';
+import type { Booking, MeetingType, Owner, Slot } from '../data/api';
+import { fetchAvailability } from '../data/api';
+import { useResource } from '../data/useResource';
 import {
   formatBookingDate,
   formatDateRange,
@@ -32,13 +32,20 @@ export function GuestBooking({ owner, meetingTypes, onOpenOwner }: GuestBookingP
   const today = todayInZone(timezone);
 
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(meetingTypes[0]?.id ?? null);
-  const [availability, setAvailability] = useState<Availability | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshToken, setRefreshToken] = useState(0);
   const [lastBooking, setLastBooking] = useState<Booking | null>(null);
+
+  const {
+    data: availability,
+    loading,
+    error,
+    reload: reloadAvailability,
+  } = useResource(
+    (signal) => fetchAvailability(selectedTypeId ?? '', signal),
+    [selectedTypeId],
+    { enabled: selectedTypeId !== null },
+  );
 
   const selectedType = meetingTypes.find((type) => type.id === selectedTypeId) ?? null;
   const selectedDay = availability?.days.find((day) => day.date === selectedDate) ?? null;
@@ -53,61 +60,28 @@ export function GuestBooking({ owner, meetingTypes, onOpenOwner }: GuestBookingP
   }, [meetingTypes, selectedTypeId]);
 
   useEffect(() => {
-    if (!selectedTypeId) {
-      setAvailability(null);
+    if (!availability) {
       setSelectedDate(null);
       return;
     }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setAvailability(null);
-
-    getAvailability({ path: { meetingTypeId: selectedTypeId } })
-      .then((result) => {
-        if (cancelled) {
-          return;
-        }
-        if (result.error || !result.data) {
-          setError(apiErrorMessage(result.error, 'Не удалось загрузить свободные слоты.'));
-          return;
-        }
-        const data = result.data;
-        setAvailability(data);
-        setSelectedDate((previous) => {
-          const stillAvailable = data.days.find(
-            (day) => day.date === previous && day.slots.length > 0,
-          );
-          if (stillAvailable) {
-            return previous;
-          }
-          return data.days.find((day) => day.slots.length > 0)?.date ?? data.days[0]?.date ?? null;
-        });
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setError('Сервер недоступен. Проверьте соединение и обновите страницу.');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedTypeId, refreshToken]);
+    setSelectedDate((previous) => {
+      const stillAvailable = availability.days.find(
+        (day) => day.date === previous && day.slots.length > 0,
+      );
+      if (stillAvailable) {
+        return previous;
+      }
+      return availability.days.find((day) => day.slots.length > 0)?.date ?? availability.days[0]?.date ?? null;
+    });
+  }, [availability]);
 
   function handleBooked(booking: Booking) {
     setLastBooking(booking);
-    setRefreshToken((value) => value + 1);
+    reloadAvailability();
   }
 
-  function handleSlotUnavailable() {
-    setRefreshToken((value) => value + 1);
+  function handleSlotConflict() {
+    reloadAvailability();
   }
 
   const availableDayCount = availability?.days.filter((day) => day.slots.length > 0).length ?? 0;
@@ -313,8 +287,8 @@ export function GuestBooking({ owner, meetingTypes, onOpenOwner }: GuestBookingP
           {selectedType && !loading && error && (
             <div className="alert alert-error" role="alert">
               <AlertIcon />
-              <span>{error}</span>
-              <button className="inline-link" type="button" onClick={() => setRefreshToken((v) => v + 1)}>
+              <span>{error.message}</span>
+              <button className="inline-link" type="button" onClick={reloadAvailability}>
                 Повторить
               </button>
             </div>
@@ -401,7 +375,7 @@ export function GuestBooking({ owner, meetingTypes, onOpenOwner }: GuestBookingP
           date={selectedDate ?? selectedSlot.start.slice(0, 10)}
           onClose={() => setSelectedSlot(null)}
           onBooked={handleBooked}
-          onSlotUnavailable={handleSlotUnavailable}
+          onSlotConflict={handleSlotConflict}
         />
       )}
     </main>

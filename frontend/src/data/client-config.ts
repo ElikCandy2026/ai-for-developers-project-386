@@ -1,4 +1,4 @@
-import type { ClientOptions, Config } from './generated/client';
+import type { ClientOptions, Config } from '../api/generated/client';
 
 /**
  * Called by the generated client before the first request. In development and in

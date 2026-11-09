@@ -8,7 +8,7 @@ export default defineConfig({
     '@hey-api/sdk',
     {
       name: '@hey-api/client-fetch',
-      runtimeConfigPath: './src/api/client-config.ts',
+      runtimeConfigPath: './src/data/client-config.ts',
     },
   ],
 });

@@ -126,7 +126,8 @@ TypeScript SDK, который использует фронтенд.
 │   └── src/
 │       ├── api/generated/        сгенерированный SDK (в репозитории)
 │       ├── components/           гость, кабинет владельца, диалог записи
-│       └── lib/                  форматирование дат и ошибок
+│       ├── data/                 facade над SDK, ApiResult и useResource
+│       └── lib/                  форматирование дат
 ├── .github/workflows/ci.yml      make install && make verify
 ├── .nvmrc                        версия Node для генерации и сборки
 ├── docs/                         скриншоты
@@ -203,6 +204,14 @@ mvn generate-sources
 Генерация клиента проверена: `@hey-api/openapi-ts` создаёт типизированные функции
 `getOwner`, `listMeetingTypes`, `getAvailability`, `createBooking` и модели
 `Owner`, `MeetingType`, `Availability`, `Booking` в `frontend/src/api/generated`.
+
+Компоненты не работают с SDK напрямую: единственная граница — `frontend/src/data`.
+Facade `data/api.ts` возвращает `ApiResult<T>` и не выбрасывает исключений,
+`useResource` владеет загрузкой, `AbortController` и stale-guard, а `ApiError`
+различает `http`, `network`, `unexpected` и `aborted`. Исчерпывающая карта кодов
+ошибок делает добавление нового кода в TypeSpec ошибкой сборки, пока его не
+обработали на фронтенде. `make verify` проверяет grep-ом, что `App`, компоненты
+и `lib/` не импортируют generated-код в обход `data/`.
 
 TypeSpec — единственный источник истины. OpenAPI и TypeScript SDK коммитятся в
 репозиторий, поэтому backend собирается без Node, а frontend — без TypeSpec.
@@ -317,9 +326,10 @@ make verify
 ```
 
 `make verify` — единственная точка входа для проверки. Он выполняет
-`make check-generated` (свежесть OpenAPI/SDK), собирает фронтенд и запускает
-backend-тесты. CI использует Node 22 и Java 21 и запускает ту же команду
-(`make install && make verify`), поэтому «зелено локально» означает «зелено в CI».
+`make check-generated` (свежесть OpenAPI/SDK), собирает фронтенд, запускает
+vitest и проверку границы импортов, затем backend-тесты. CI использует Node 22 и
+Java 21 и запускает ту же команду (`make install && make verify`), поэтому
+«зелено локально» означает «зелено в CI».
 
 | Команда | Что делает |
 | --- | --- |
@@ -327,9 +337,11 @@ backend-тесты. CI использует Node 22 и Java 21 и запуска
 | `make generate` | TypeSpec → OpenAPI → TypeScript SDK |
 | `make check-generated` | падает при расхождении OpenAPI/SDK с контрактом |
 | `make frontend` | сборка фронтенда в `frontend/dist` |
+| `make frontend-test` | тесты маппинга ошибок (vitest) |
+| `make frontend-boundary` | grep-проверка: UI не импортирует generated SDK |
 | `make test` | backend-тесты (без сборки фронтенда) |
 | `make build` | генерация, фронтенд и jar с фронтендом внутри |
-| `make verify` | `check-generated` + сборка фронтенда + тесты |
+| `make verify` | `check-generated` + фронтенд + vitest + граница + тесты |
 | `make run` | сборка и запуск приложения |
 | `make clean` | удаляет `backend/target` и `frontend/dist` |
 

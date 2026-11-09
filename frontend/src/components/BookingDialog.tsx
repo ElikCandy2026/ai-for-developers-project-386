@@ -6,9 +6,8 @@ import type {
   MeetingType,
   Owner,
   Slot,
-} from '../api/generated';
-import { createBooking } from '../api/generated';
-import { apiErrorMessage } from '../lib/apiError';
+} from '../data/api';
+import { createBooking, isSlotConflict } from '../data/api';
 import {
   formatBookingDate,
   formatDuration,
@@ -26,7 +25,7 @@ type BookingDialogProps = {
   date: string;
   onClose: () => void;
   onBooked: (booking: Booking) => void;
-  onSlotUnavailable: () => void;
+  onSlotConflict: () => void;
 };
 
 export function BookingDialog({
@@ -36,7 +35,7 @@ export function BookingDialog({
   date,
   onClose,
   onBooked,
-  onSlotUnavailable,
+  onSlotConflict,
 }: BookingDialogProps) {
   const titleId = useId();
   const [guestName, setGuestName] = useState('');
@@ -81,19 +80,16 @@ export function BookingDialog({
     };
 
     try {
-      const result = await createBooking({ body });
-      if (result.error) {
-        const message = apiErrorMessage(result.error, 'Не удалось создать запись. Попробуйте ещё раз.');
-        setError(message);
-        onSlotUnavailable();
+      const result = await createBooking(body);
+      if (!result.ok) {
+        setError(result.error.message);
+        if (isSlotConflict(result.error)) {
+          onSlotConflict();
+        }
         return;
       }
-      if (result.data) {
-        setBooking(result.data);
-        onBooked(result.data);
-      }
-    } catch {
-      setError('Сервер недоступен. Проверьте соединение и попробуйте ещё раз.');
+      setBooking(result.data);
+      onBooked(result.data);
     } finally {
       setPending(false);
     }

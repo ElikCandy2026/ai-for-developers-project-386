@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import type { MeetingType, Owner } from './api/generated';
-import { getOwner, listMeetingTypes } from './api/generated';
+import type { MeetingType } from './data/api';
+import { fetchBootstrap } from './data/api';
 import { GuestBooking } from './components/GuestBooking';
 import { AlertIcon, PhoneIcon, RefreshIcon } from './components/Icons';
 import { OwnerDashboard } from './components/OwnerDashboard';
-import { apiErrorMessage } from './lib/apiError';
+import { useResource } from './data/useResource';
 import { formatTimezoneOffset } from './lib/format';
 
 type View = 'guest' | 'owner';
@@ -16,36 +16,9 @@ function initialView(): View {
 
 export default function App() {
   const [view, setView] = useState<View>(initialView);
-  const [owner, setOwner] = useState<Owner | null>(null);
-  const [meetingTypes, setMeetingTypes] = useState<MeetingType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [ownerResult, typesResult] = await Promise.all([getOwner(), listMeetingTypes()]);
-      if (ownerResult.error || !ownerResult.data) {
-        setError(apiErrorMessage(ownerResult.error, 'Не удалось загрузить данные владельца.'));
-        return;
-      }
-      if (typesResult.error || !typesResult.data) {
-        setError(apiErrorMessage(typesResult.error, 'Не удалось загрузить типы встреч.'));
-        return;
-      }
-      setOwner(ownerResult.data);
-      setMeetingTypes(typesResult.data);
-    } catch {
-      setError('Сервер недоступен. Убедитесь, что backend запущен, и попробуйте снова.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { data, loading, error, reload, setData } = useResource(fetchBootstrap, []);
+  const owner = data?.owner ?? null;
+  const meetingTypes = data?.meetingTypes ?? [];
 
   useEffect(() => {
     const hash = view === 'owner' ? '#owner' : '#guest';
@@ -55,15 +28,21 @@ export default function App() {
   }, [view]);
 
   function handleTypeCreated(meetingType: MeetingType) {
-    setMeetingTypes((current) => [...current, meetingType]);
+    setData((current) =>
+      current ? { ...current, meetingTypes: [...current.meetingTypes, meetingType] } : current,
+    );
   }
 
-  const initials = owner?.displayName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') ?? '';
+  const initials = useMemo(
+    () =>
+      owner?.displayName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('') ?? '',
+    [owner],
+  );
 
   return (
     <div className="app-shell">
@@ -122,8 +101,8 @@ export default function App() {
           <div className="loader-card error-card">
             <span className="card-icon error"><AlertIcon /></span>
             <h1>Не удалось открыть календарь</h1>
-            <p>{error ?? 'Неизвестная ошибка'}</p>
-            <button className="primary-button" type="button" onClick={() => void load()}>
+            <p>{error?.message ?? 'Неизвестная ошибка'}</p>
+            <button className="primary-button" type="button" onClick={reload}>
               <RefreshIcon />
               Попробовать снова
             </button>
