@@ -1,4 +1,4 @@
-package com.callbooking.config;
+package com.callbooking.persistence;
 
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.annotation.DependsOn;

@@ -12,15 +12,16 @@ import com.callbooking.api.model.CreateBookingRequest;
 import com.callbooking.api.model.CreateMeetingTypeRequest;
 import com.callbooking.api.model.MeetingType;
 import com.callbooking.api.model.Owner;
-import com.callbooking.domain.AvailabilityService;
-import com.callbooking.domain.BookingService;
-import com.callbooking.domain.MeetingTypeService;
-import com.callbooking.domain.OwnerService;
+import com.callbooking.application.AvailabilityService;
+import com.callbooking.application.BookingService;
+import com.callbooking.application.MeetingTypeService;
+import com.callbooking.application.OwnerService;
 
 /**
  * HTTP adapter. Routes, request/response models and their validation constraints
  * are generated from the TypeSpec contract into the *Api interfaces and model
- * classes implemented below.
+ * classes implemented below. This layer translates between the generated
+ * contract and the application use cases.
  */
 @RestController
 public class CallBookingController
@@ -44,36 +45,47 @@ public class CallBookingController
 
     @Override
     public ResponseEntity<Owner> getOwner() {
-        return ResponseEntity.ok(ownerService.getOwner());
+        return ResponseEntity.ok(DomainApiMapper.toApi(ownerService.getOwner()));
     }
 
     @Override
     public ResponseEntity<List<MeetingType>> listMeetingTypes() {
-        return ResponseEntity.ok(meetingTypeService.list());
+        return ResponseEntity.ok(DomainApiMapper.toApi(meetingTypeService.list()));
     }
 
     @Override
     public ResponseEntity<MeetingType> createMeetingType(CreateMeetingTypeRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(meetingTypeService.create(request));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(DomainApiMapper.toApi(meetingTypeService.create(
+                        request.getName(),
+                        request.getDescription(),
+                        request.getDurationMinutes())));
     }
 
     @Override
     public ResponseEntity<MeetingType> getMeetingType(String meetingTypeId) {
-        return ResponseEntity.ok(meetingTypeService.get(meetingTypeId));
+        return ResponseEntity.ok(DomainApiMapper.toApi(meetingTypeService.get(meetingTypeId)));
     }
 
     @Override
     public ResponseEntity<Availability> getAvailability(String meetingTypeId) {
-        return ResponseEntity.ok(availabilityService.getAvailability(meetingTypeId));
+        return ResponseEntity.ok(DomainApiMapper.toApi(availabilityService.getAvailability(meetingTypeId)));
     }
 
     @Override
     public ResponseEntity<Booking> createBooking(CreateBookingRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.create(request));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(DomainApiMapper.toApi(bookingService.create(
+                        request.getMeetingTypeId(),
+                        request.getStart().toInstant(),
+                        request.getGuestName(),
+                        request.getGuestEmail(),
+                        request.getNotes())));
     }
 
     @Override
     public ResponseEntity<List<Booking>> listBookings(Boolean includePast) {
-        return ResponseEntity.ok(bookingService.list(Boolean.TRUE.equals(includePast)));
+        return ResponseEntity.ok(DomainApiMapper.bookingsToApi(
+                bookingService.list(Boolean.TRUE.equals(includePast))));
     }
 }

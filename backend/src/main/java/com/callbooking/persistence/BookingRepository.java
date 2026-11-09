@@ -8,9 +8,9 @@ import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import com.callbooking.api.ApiTime;
-import com.callbooking.api.model.Booking;
-import com.callbooking.api.model.MeetingTypeSummary;
+import com.callbooking.domain.Booking;
+import com.callbooking.domain.BookingInterval;
+import com.callbooking.domain.MeetingTypeSummary;
 
 @Repository
 public class BookingRepository {
@@ -21,21 +21,21 @@ public class BookingRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void insert(BookingRow row) {
+    public void insert(Booking booking) {
         jdbcTemplate.update("""
                         INSERT INTO bookings
                             (id, meeting_type_id, guest_name, guest_email, notes,
                              start_ms, end_ms, created_at_ms)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                row.id(),
-                row.meetingTypeId(),
-                row.guestName(),
-                row.guestEmail(),
-                row.notes(),
-                row.startMs(),
-                row.endMs(),
-                row.createdAtMs());
+                booking.id(),
+                booking.meetingType().id(),
+                booking.guestName(),
+                booking.guestEmail(),
+                booking.notes(),
+                booking.start().toEpochMilli(),
+                booking.end().toEpochMilli(),
+                booking.createdAt().toEpochMilli());
     }
 
     public List<Booking> findBookings(boolean includePast, Instant now) {
@@ -53,23 +53,25 @@ public class BookingRepository {
                 """.formatted(where), this::mapBooking, args);
     }
 
-    public List<BookingInterval> findIntervals(long rangeStartMs, long rangeEndMs) {
+    public List<BookingInterval> findIntervals(Instant rangeStart, Instant rangeEnd) {
         return jdbcTemplate.query("""
                         SELECT start_ms, end_ms
                         FROM bookings
                         WHERE start_ms < ? AND end_ms > ?
                         """,
-                (rs, rowNum) -> new BookingInterval(rs.getLong("start_ms"), rs.getLong("end_ms")),
-                rangeEndMs,
-                rangeStartMs);
+                (rs, rowNum) -> new BookingInterval(
+                        Instant.ofEpochMilli(rs.getLong("start_ms")),
+                        Instant.ofEpochMilli(rs.getLong("end_ms"))),
+                rangeEnd.toEpochMilli(),
+                rangeStart.toEpochMilli());
     }
 
-    public boolean existsOverlap(long startMs, long endMs) {
+    public boolean existsOverlap(Instant start, Instant end) {
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM bookings
                 WHERE start_ms < ? AND end_ms > ?
-                """, Integer.class, endMs, startMs);
+                """, Integer.class, end.toEpochMilli(), start.toEpochMilli());
         return count != null && count > 0;
     }
 
@@ -78,38 +80,20 @@ public class BookingRepository {
     }
 
     private Booking mapBooking(ResultSet rs, int rowNum) throws SQLException {
-        MeetingTypeSummary meetingType = new MeetingTypeSummary()
-                .id(rs.getString("mt_id"))
-                .name(rs.getString("mt_name"))
-                .description(rs.getString("mt_description"))
-                .durationMinutes(rs.getInt("mt_duration"));
+        MeetingTypeSummary meetingType = new MeetingTypeSummary(
+                rs.getString("mt_id"),
+                rs.getString("mt_name"),
+                rs.getString("mt_description"),
+                rs.getInt("mt_duration"));
 
-        return new Booking()
-                .id(rs.getString("id"))
-                .meetingType(meetingType)
-                .guestName(rs.getString("guest_name"))
-                .guestEmail(rs.getString("guest_email"))
-                .notes(rs.getString("notes"))
-                .start(ApiTime.utc(Instant.ofEpochMilli(rs.getLong("start_ms"))))
-                .end(ApiTime.utc(Instant.ofEpochMilli(rs.getLong("end_ms"))))
-                .createdAt(ApiTime.utc(Instant.ofEpochMilli(rs.getLong("created_at_ms"))));
-    }
-
-    public record BookingRow(
-            String id,
-            String meetingTypeId,
-            String guestName,
-            String guestEmail,
-            String notes,
-            long startMs,
-            long endMs,
-            long createdAtMs) {
-    }
-
-    public record BookingInterval(long startMs, long endMs) {
-
-        public boolean overlaps(long otherStartMs, long otherEndMs) {
-            return otherStartMs < endMs && otherEndMs > startMs;
-        }
+        return new Booking(
+                rs.getString("id"),
+                meetingType,
+                rs.getString("guest_name"),
+                rs.getString("guest_email"),
+                rs.getString("notes"),
+                Instant.ofEpochMilli(rs.getLong("start_ms")),
+                Instant.ofEpochMilli(rs.getLong("end_ms")),
+                Instant.ofEpochMilli(rs.getLong("created_at_ms")));
     }
 }
