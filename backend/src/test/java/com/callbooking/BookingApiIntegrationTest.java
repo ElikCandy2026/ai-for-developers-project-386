@@ -26,7 +26,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -123,6 +127,80 @@ class BookingApiIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).contains("INVALID_DURATION");
+    }
+
+    @Test
+    void rejectsMeetingTypeDurationOutsideAllowedRange() {
+        ResponseEntity<String> tooLong = rest.postForEntity(
+                "/api/meeting-types",
+                new CreateMeetingTypeRequest()
+                        .name("Слишком длинная встреча")
+                        .description("")
+                        .durationMinutes(300),
+                String.class);
+        assertThat(tooLong.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(tooLong.getBody()).contains("VALIDATION_FAILED");
+
+        ResponseEntity<String> tooShort = rest.postForEntity(
+                "/api/meeting-types",
+                new CreateMeetingTypeRequest()
+                        .name("Слишком короткая встреча")
+                        .description("")
+                        .durationMinutes(10),
+                String.class);
+        assertThat(tooShort.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(tooShort.getBody()).contains("VALIDATION_FAILED");
+    }
+
+    @Test
+    void rejectsWhitespaceOnlyMeetingTypeName() {
+        ResponseEntity<String> response = rest.postForEntity(
+                "/api/meeting-types",
+                new CreateMeetingTypeRequest()
+                        .name("   ")
+                        .description("")
+                        .durationMinutes(30),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("VALIDATION_FAILED");
+        assertThat(response.getBody()).contains("Название");
+        assertThat(response.getBody()).contains("неверный формат");
+    }
+
+    @Test
+    void rejectsMalformedJsonBody() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ResponseEntity<String> response = rest.postForEntity(
+                "/api/bookings",
+                new HttpEntity<>("{ \"meetingTypeId\": ", headers),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("MALFORMED_REQUEST");
+    }
+
+    @Test
+    void keepsFrameworkStatusForUnsupportedMethod() {
+        ResponseEntity<String> response = rest.exchange(
+                "/api/owner", HttpMethod.DELETE, HttpEntity.EMPTY, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+    }
+
+    @Test
+    void keepsFrameworkStatusForUnsupportedMediaType() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_PLAIN);
+
+        ResponseEntity<String> response = rest.postForEntity(
+                "/api/meeting-types",
+                new HttpEntity<>("не JSON", headers),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     }
 
     @Test
@@ -286,10 +364,16 @@ class BookingApiIntegrationTest {
         ResponseEntity<String> emptyName = postBookingRaw(
                 type.getId(), slot.getStart().toInstant(), "   ", "guest@example.com");
         assertThat(emptyName.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(emptyName.getBody()).contains("VALIDATION_FAILED");
+        assertThat(emptyName.getBody()).contains("Имя гостя");
+        assertThat(emptyName.getBody()).contains("неверный формат");
 
         ResponseEntity<String> badEmail = postBookingRaw(
                 type.getId(), slot.getStart().toInstant(), "Гость", "not-an-email");
         assertThat(badEmail.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(badEmail.getBody()).contains("VALIDATION_FAILED");
+        assertThat(badEmail.getBody()).contains("Email гостя");
+        assertThat(badEmail.getBody()).contains("неверный формат");
     }
 
     @Test

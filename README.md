@@ -87,6 +87,8 @@ TypeScript SDK, который использует фронтенд.
   (`sqlite-jdbc`), Maven.
 - **Frontend:** TypeScript, React 19, Vite. Клиентский SDK генерируется из OpenAPI
   через `@hey-api/openapi-ts` — для TypeScript есть готовый генератор клиента.
+- **Сборка:** Node 22 (зафиксирован в `.nvmrc` и `engines.node`) и Java 21.
+  Vite собирает фронтенд в `frontend/dist`, Maven упаковывает его в jar.
 - **Хранилище:** SQLite, файл `./data/call-booking.db` по умолчанию.
 
 Серверные интерфейсы и DTO не написаны руками: OpenAPI Generator (`spring`,
@@ -105,24 +107,29 @@ TypeScript SDK, который использует фронтенд.
 │   └── tsp-output/openapi/
 │       └── openapi.yaml          сгенерированная спецификация (в репозитории)
 ├── backend/                      Spring Boot + SQLite
-│   ├── pom.xml                   генерация серверных интерфейсов из OpenAPI
+│   ├── pom.xml                   генерация серверных интерфейсов и упаковка frontend
 │   └── src/
 │       ├── main/java/com/callbooking/
 │       │   ├── api/              контроллер и обработка ошибок
+│       │   ├── application/      use cases и закрытый набор кодов ошибок
 │       │   ├── config/           настройки, SQLite, демо-данные
-│       │   ├── domain/           правила слотов и бронирования
-│       │   └── persistence/      JDBC-репозитории
+│       │   ├── domain/           scheduling policy, правила слотов и бронирования
+│       │   └── persistence/      JDBC-репозитории и атомарная вставка записи
 │       ├── main/resources/
 │       │   ├── application.yml
 │       │   ├── schema.sql
-│       │   └── static/           собранный фронтенд
-│       └── test/                 11 интеграционных тестов
+│       │   └── ValidationMessages.properties
+│       └── test/                 интеграционные, unit- и ArchUnit-тесты
 ├── frontend/                     React + TypeScript + Vite
 │   ├── openapi-ts.config.ts      генерация SDK
+│   ├── dist/                     собранная статика (не в git)
 │   └── src/
 │       ├── api/generated/        сгенерированный SDK (в репозитории)
 │       ├── components/           гость, кабинет владельца, диалог записи
-│       └── lib/                  форматирование дат и ошибок
+│       ├── data/                 facade над SDK, ApiResult и useResource
+│       └── lib/                  форматирование дат
+├── .github/workflows/ci.yml      make install && make verify
+├── .nvmrc                        версия Node для генерации и сборки
 ├── docs/                         скриншоты
 ├── Makefile
 └── README.md
@@ -152,8 +159,26 @@ TypeScript SDK, который использует фронтенд.
 }
 ```
 
-Коды ошибок: `VALIDATION_FAILED`, `MEETING_TYPE_NOT_FOUND`, `INVALID_DURATION`,
-`SLOT_UNAVAILABLE`, `SLOT_TAKEN`.
+Набор кодов закрыт контрактом: семь значений, сгруппированных по HTTP-статусу.
+Поле `code` всегда строка; клиент может обрабатывать коды исчерпывающе.
+
+| Код | HTTP | Значение |
+| --- | --- | --- |
+| `VALIDATION_FAILED` | 400 | данные не прошли Bean Validation: обязательное поле, длина, формат, диапазон или непустота |
+| `MALFORMED_REQUEST` | 400 | тело или параметры запроса не удалось разобрать |
+| `INVALID_DURATION` | 400 | длительность типа встречи не кратна 15 минутам |
+| `MEETING_TYPE_NOT_FOUND` | 404 | тип встречи с указанным id не существует |
+| `SLOT_UNAVAILABLE` | 409 | слот вне окна записи, рабочих часов, сетки стартов или уже начался |
+| `SLOT_TAKEN` | 409 | слот занят другой встречей, в том числе другого типа |
+| `INTERNAL_ERROR` | 500 | непредвиденная ошибка сервера |
+
+Синтаксис запроса (обязательность, длины, шаблоны, диапазон 15–240, email)
+проверяет Bean Validation, сгенерированная из контракта; сервер отвечает на такие
+ошибки `VALIDATION_FAILED` с русским сообщением и подписью поля. Семантику
+календаря (окно, рабочие часы, сетка, notice, кратность длительности и
+пересечения) проверяет серверная логика: диапазон длительности относится к
+валидации, а её кратность 15 — к `INVALID_DURATION`. Framework-ошибки `405`,
+`415` и `406` сохраняют свой статус и не превращаются в `500`.
 
 ## Контракт и кодогенерация
 
@@ -180,9 +205,25 @@ mvn generate-sources
 `getOwner`, `listMeetingTypes`, `getAvailability`, `createBooking` и модели
 `Owner`, `MeetingType`, `Availability`, `Booking` в `frontend/src/api/generated`.
 
+Компоненты не работают с SDK напрямую: единственная граница — `frontend/src/data`.
+Facade `data/api.ts` возвращает `ApiResult<T>` и не выбрасывает исключений,
+`useResource` владеет загрузкой, `AbortController` и stale-guard, а `ApiError`
+различает `http`, `network`, `unexpected` и `aborted`. Исчерпывающая карта кодов
+ошибок делает добавление нового кода в TypeSpec ошибкой сборки, пока его не
+обработали на фронтенде. `make verify` проверяет grep-ом, что `App`, компоненты
+и `lib/` не импортируют generated-код в обход `data/`.
+
+TypeSpec — единственный источник истины. OpenAPI и TypeScript SDK коммитятся в
+репозиторий, поэтому backend собирается без Node, а frontend — без TypeSpec.
+`tsp compile` запускается с `--warn-as-error`. Свежесть сгенерированных файлов
+проверяет `make check-generated`: он перегенерирует контракт и SDK и падает, если
+в `contract/tsp-output` или `frontend/src/api/generated` появились изменённые,
+новые или удалённые файлы. Посторонние изменения он игнорирует.
+
 ## Установка
 
-Нужны JDK 21+, Maven 3.9+, Node.js 22+ и npm.
+Нужны JDK 21, Maven 3.9+, Node.js 22 и npm. Версия Node зафиксирована в `.nvmrc`
+(`nvm use`), а также в `engines.node` пакетов `contract` и `frontend`.
 
 ```bash
 git clone https://github.com/ElikCandy2026/ai-for-developers-project-386.git
@@ -202,8 +243,10 @@ make build
 make run
 ```
 
-Открыть <http://localhost:8080>. Frontend собран в
-`backend/src/main/resources/static` и раздаётся Spring Boot.
+`make build` перегенерирует OpenAPI и SDK, собирает фронтенд в `frontend/dist` и
+упаковывает его Maven-ом в jar (`target/classes/static`). `make run` сначала
+выполняет ту же сборку, затем запускает приложение. Открыть
+<http://localhost:8080> — Spring Boot раздаёт фронтенд из jar.
 
 Без `make`:
 
@@ -213,6 +256,10 @@ cd frontend && npm ci && npm run generate:api && npm run build && cd ..
 cd backend && mvn -DskipTests package
 java -jar target/call-booking-1.0.0.jar
 ```
+
+Собранная статика не хранится в git: `frontend/dist` и `backend/target`
+игнорируются, а `backend/src/main/resources/static` создаётся только в выводе
+сборки.
 
 При первом запуске база создаётся автоматически. По умолчанию добавляются три
 демонстрационных типа встреч, если таблица типов пуста. Отключить:
@@ -253,7 +300,7 @@ cd backend
 mvn test
 ```
 
-11 интеграционных тестов поднимают приложение на случайном порту и используют
+Интеграционные тесты поднимают приложение на случайном порту и используют
 временную SQLite-базу. Проверяются:
 
 - правила владельца и окно в 14 календарных дней;
@@ -264,8 +311,13 @@ mvn test
 - отказ для слота вне окна и вне шага сетки;
 - валидация имени и email гостя;
 - `404` для неизвестного типа;
+- закрытый набор кодов ошибок: непустые имена, строгий email, диапазон
+  длительности, битый JSON, сохранение статусов `405` и `415`;
 - **10 одновременных запросов на один слот, в том числе от разных типов встреч:
   ровно один `201`, остальные `409`.**
+
+Отдельный drift-тест сверяет `ApplicationErrorCode` с enum'ами, сгенерированными
+из TypeSpec, и не даёт наборам кодов разойтись.
 
 Полная проверка контракта, генерации, фронтенда и тестов:
 
@@ -273,18 +325,45 @@ mvn test
 make verify
 ```
 
+`make verify` — единственная точка входа для проверки. Он выполняет
+`make check-generated` (свежесть OpenAPI/SDK), собирает фронтенд, запускает
+vitest и проверку границы импортов, затем backend-тесты. CI использует Node 22 и
+Java 21 и запускает ту же команду (`make install && make verify`), поэтому
+«зелено локально» означает «зелено в CI».
+
+| Команда | Что делает |
+| --- | --- |
+| `make install` | `npm ci` в `contract` и `frontend` |
+| `make generate` | TypeSpec → OpenAPI → TypeScript SDK |
+| `make check-generated` | падает при расхождении OpenAPI/SDK с контрактом |
+| `make frontend` | сборка фронтенда в `frontend/dist` |
+| `make frontend-test` | тесты маппинга ошибок (vitest) |
+| `make frontend-boundary` | grep-проверка: UI не импортирует generated SDK |
+| `make test` | backend-тесты (без сборки фронтенда) |
+| `make build` | генерация, фронтенд и jar с фронтендом внутри |
+| `make verify` | `check-generated` + фронтенд + vitest + граница + тесты |
+| `make run` | сборка и запуск приложения |
+| `make clean` | удаляет `backend/target` и `frontend/dist` |
+
 ## Как обеспечена защита от двойной записи
 
 Используются три уровня:
 
-1. **Сериализация внутри приложения** — `ReentrantLock` вокруг проверки и вставки
-   бронирования; транзакция коммитится до освобождения блокировки.
-2. **Транзакционная проверка пересечения** — перед вставкой выполняется запрос
+1. **Сериализация внутри persistence-модуля** — `BookingRepository.tryInsert`
+   держит fair `ReentrantLock` вокруг транзакции и коммитит до освобождения
+   блокировки.
+2. **Транзакционная проверка пересечения** — внутри той же транзакции перед
+   вставкой выполняется запрос
    `NEW.start < existing.end AND NEW.end > existing.start`.
 3. **SQLite-триггер** `trg_bookings_prevent_overlap` — `BEFORE INSERT` прерывает
    вставку с `booking_overlap`, если интервал пересекается с уже существующим.
    Это защищает и при нескольких экземплярах приложения. SQLite сериализует
    писателей, включены WAL и `busy_timeout`.
+
+`tryInsert` возвращает `Inserted` или `SlotTaken`; SQLite-исключение и
+`DataAccessException` не покидают persistence. `BookingService` только
+валидирует календарь через `SchedulingPolicy` и маппит `SlotTaken` в публичный
+`SLOT_TAKEN`.
 
 Смежные интервалы не пересекаются: `10:00–11:00` и `11:00–11:30` допустимы,
 `10:00–11:00` и `10:30–11:00` — нет.

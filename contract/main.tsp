@@ -112,6 +112,7 @@ model MeetingTypeSummary {
 
 /** Запрос на создание типа встречи. */
 model CreateMeetingTypeRequest {
+  @pattern(".*\\S.*")
   @minLength(1)
   @maxLength(80)
   name: string;
@@ -168,15 +169,18 @@ model Availability {
 
 /** Запрос на запись на звонок. */
 model CreateBookingRequest {
+  @pattern(".*\\S.*")
   meetingTypeId: string;
 
   /** Начало встречи в UTC. Должно совпадать с одним из свободных слотов. */
   start: utcDateTime;
 
+  @pattern(".*\\S.*")
   @minLength(1)
   @maxLength(120)
   guestName: string;
 
+  @pattern("^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$")
   @format("email")
   @minLength(3)
   @maxLength(254)
@@ -204,11 +208,44 @@ model Booking {
   createdAt: utcDateTime;
 }
 
+/** Коды ошибок запроса (400). */
+enum BadRequestCode {
+  /** Данные не прошли валидацию: обязательные поля, длины, форматы, диапазоны. */
+  VALIDATION_FAILED,
+
+  /** Тело или параметры запроса не удалось разобрать. */
+  MALFORMED_REQUEST,
+
+  /** Длительность встречи не кратна допустимому шагу. */
+  INVALID_DURATION,
+}
+
+/** Коды ошибок «ресурс не найден» (404). */
+enum NotFoundCode {
+  /** Тип встречи с указанным идентификатором не существует. */
+  MEETING_TYPE_NOT_FOUND,
+}
+
+/** Коды конфликтов (409). */
+enum ConflictCode {
+  /** Слот вне окна записи, рабочих часов или сетки стартов. */
+  SLOT_UNAVAILABLE,
+
+  /** Слот уже занят другой встречей. */
+  SLOT_TAKEN,
+}
+
+/** Коды внутренних ошибок (500). */
+enum InternalErrorCode {
+  /** Непредвиденная ошибка сервера. */
+  INTERNAL_ERROR,
+}
+
 /** Ошибка валидации запроса. */
 @error
 model BadRequestError {
   @statusCode statusCode: 400;
-  code: string;
+  code: BadRequestCode;
   message: string;
 }
 
@@ -216,7 +253,7 @@ model BadRequestError {
 @error
 model NotFoundError {
   @statusCode statusCode: 404;
-  code: string;
+  code: NotFoundCode;
   message: string;
 }
 
@@ -224,7 +261,15 @@ model NotFoundError {
 @error
 model ConflictError {
   @statusCode statusCode: 409;
-  code: string;
+  code: ConflictCode;
+  message: string;
+}
+
+/** Внутренняя ошибка сервера. */
+@error
+model InternalError {
+  @statusCode statusCode: 500;
+  code: InternalErrorCode;
   message: string;
 }
 
@@ -232,13 +277,13 @@ model ConflictError {
 @route("/api/owner")
 @get
 /** Данные единственного владельца календаря и правила записи. */
-op getOwner(): Owner;
+op getOwner(): Owner | InternalError;
 
 @tag("Meeting types")
 @route("/api/meeting-types")
 @get
 /** Список типов встреч владельца в порядке создания. */
-op listMeetingTypes(): MeetingType[];
+op listMeetingTypes(): MeetingType[] | InternalError;
 
 @tag("Meeting types")
 @route("/api/meeting-types")
@@ -247,13 +292,13 @@ op listMeetingTypes(): MeetingType[];
 op createMeetingType(@body request: CreateMeetingTypeRequest): {
   @statusCode statusCode: 201;
   @body meetingType: MeetingType;
-} | BadRequestError;
+} | BadRequestError | InternalError;
 
 @tag("Meeting types")
 @route("/api/meeting-types/{meetingTypeId}")
 @get
 /** Получить тип встречи по идентификатору. */
-op getMeetingType(@path meetingTypeId: string): MeetingType | NotFoundError;
+op getMeetingType(@path meetingTypeId: string): MeetingType | NotFoundError | InternalError;
 
 @tag("Availability")
 @route("/api/meeting-types/{meetingTypeId}/availability")
@@ -262,7 +307,7 @@ op getMeetingType(@path meetingTypeId: string): MeetingType | NotFoundError;
  * Свободные слоты типа встречи на актуальное 14-дневное окно.
  * Окно начинается с сегодняшнего дня по времени владельца.
  */
-op getAvailability(@path meetingTypeId: string): Availability | NotFoundError;
+op getAvailability(@path meetingTypeId: string): Availability | NotFoundError | InternalError;
 
 @tag("Bookings")
 @route("/api/bookings")
@@ -275,7 +320,7 @@ op getAvailability(@path meetingTypeId: string): Availability | NotFoundError;
 op createBooking(@body request: CreateBookingRequest): {
   @statusCode statusCode: 201;
   @body booking: Booking;
-} | BadRequestError | NotFoundError | ConflictError;
+} | BadRequestError | NotFoundError | ConflictError | InternalError;
 
 @tag("Bookings")
 @route("/api/bookings")
@@ -284,4 +329,4 @@ op createBooking(@body request: CreateBookingRequest): {
  * Предстоящие встречи всех типов, упорядоченные по началу.
  * По умолчанию возвращаются только встречи, которые ещё не начались.
  */
-op listBookings(@query includePast?: boolean): Booking[];
+op listBookings(@query includePast?: boolean): Booking[] | InternalError;

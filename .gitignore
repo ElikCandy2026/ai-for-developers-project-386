@@ -3,13 +3,14 @@ node_modules/
 frontend/node_modules/
 contract/node_modules/
 frontend/dist/
+backend/src/main/resources/static/
 
 # Maven
 backend/target/
 
 # Runtime data
 backend/data/
-data/
+/data/
 *.db
 *.db-shm
 *.db-wal

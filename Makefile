@@ -1,4 +1,6 @@
-.PHONY: install generate contract client frontend test build verify run dev-backend dev-frontend clean
+.PHONY: install generate contract client check-generated frontend frontend-test frontend-boundary test build verify run dev-backend dev-frontend clean
+
+GENERATED_PATHS = contract/tsp-output frontend/src/api/generated
 
 install:
 	cd contract && npm ci
@@ -12,18 +14,35 @@ client:
 
 generate: contract client
 
+check-generated: generate
+	@changed=$$(git status --porcelain -- $(GENERATED_PATHS)); \
+	if [ -n "$$changed" ]; then \
+		echo "Generated OpenAPI/SDK is out of date; commit the result of 'make generate':"; \
+		echo "$$changed"; \
+		exit 1; \
+	fi
+
 frontend:
 	cd frontend && npm run build
 
-test: contract
+frontend-test:
+	cd frontend && npm test
+
+frontend-boundary:
+	@if grep -rn "api/generated" frontend/src --include='*.ts' --include='*.tsx' | grep -v '^frontend/src/data/' | grep -v '^frontend/src/api/generated/'; then \
+		echo "UI must import from data/api, not from the generated SDK"; \
+		exit 1; \
+	fi
+
+test:
 	cd backend && mvn test
 
 build: generate frontend
-	cd backend && mvn -DskipTests package
+	cd backend && mvn -DskipTests clean package
 
-verify: generate frontend test
+verify: check-generated frontend frontend-test frontend-boundary test
 
-run:
+run: build
 	cd backend && mvn spring-boot:run
 
 dev-backend:
