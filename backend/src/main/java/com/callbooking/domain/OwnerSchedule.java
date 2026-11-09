@@ -5,9 +5,10 @@ import java.time.ZoneId;
 import java.util.List;
 
 /**
- * Immutable snapshot of the owner's booking rules.
+ * Immutable snapshot of the owner's calendar rules. The scheduling policy reads
+ * it; nothing else derives window, working hours or grid from configuration.
  */
-public record BookingRules(
+public record OwnerSchedule(
         String timezone,
         List<DayOfWeek> workingDays,
         LocalTime workdayStart,
@@ -19,7 +20,7 @@ public record BookingRules(
         int minimumDurationMinutes,
         int maximumDurationMinutes) {
 
-    public BookingRules {
+    public OwnerSchedule {
         workingDays = List.copyOf(workingDays);
     }
 

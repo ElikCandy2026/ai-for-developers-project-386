@@ -26,23 +26,23 @@ public final class DomainApiMapper {
                 .id(owner.id())
                 .displayName(owner.displayName())
                 .email(owner.email())
-                .rules(toApi(owner.rules()));
+                .rules(toApi(owner.schedule()));
     }
 
-    public static BookingRules toApi(com.callbooking.domain.BookingRules rules) {
+    public static BookingRules toApi(com.callbooking.domain.OwnerSchedule schedule) {
         return new BookingRules()
-                .timezone(rules.timezone())
-                .workingDays(rules.workingDays().stream()
+                .timezone(schedule.timezone())
+                .workingDays(schedule.workingDays().stream()
                         .map(day -> DayOfWeek.valueOf(day.name()))
                         .toList())
-                .workdayStart(rules.workdayStart().toString())
-                .workdayEnd(rules.workdayEnd().toString())
-                .slotStepMinutes(rules.slotStepMinutes())
-                .bookingWindowDays(rules.bookingWindowDays())
-                .bookingWindowStartOffsetDays(rules.bookingWindowStartOffsetDays())
-                .minimumNoticeMinutes(rules.minimumNoticeMinutes())
-                .minimumDurationMinutes(rules.minimumDurationMinutes())
-                .maximumDurationMinutes(rules.maximumDurationMinutes());
+                .workdayStart(schedule.workdayStart().toString())
+                .workdayEnd(schedule.workdayEnd().toString())
+                .slotStepMinutes(schedule.slotStepMinutes())
+                .bookingWindowDays(schedule.bookingWindowDays())
+                .bookingWindowStartOffsetDays(schedule.bookingWindowStartOffsetDays())
+                .minimumNoticeMinutes(schedule.minimumNoticeMinutes())
+                .minimumDurationMinutes(schedule.minimumDurationMinutes())
+                .maximumDurationMinutes(schedule.maximumDurationMinutes());
     }
 
     public static MeetingType toApi(com.callbooking.domain.MeetingType meetingType) {

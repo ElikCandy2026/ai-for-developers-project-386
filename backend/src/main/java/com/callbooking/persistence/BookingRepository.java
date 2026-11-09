@@ -66,15 +66,6 @@ public class BookingRepository {
                 rangeStart.toEpochMilli());
     }
 
-    public boolean existsOverlap(Instant start, Instant end) {
-        Integer count = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*)
-                FROM bookings
-                WHERE start_ms < ? AND end_ms > ?
-                """, Integer.class, end.toEpochMilli(), start.toEpochMilli());
-        return count != null && count > 0;
-    }
-
     public void deleteAll() {
         jdbcTemplate.update("DELETE FROM bookings");
     }
