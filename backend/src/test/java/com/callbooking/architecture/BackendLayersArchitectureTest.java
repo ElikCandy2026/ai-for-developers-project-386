@@ -46,4 +46,10 @@ class BackendLayersArchitectureTest {
             .that().resideOutsideOfPackage("com.callbooking.api..")
             .should().dependOnClassesThat()
             .resideInAPackage("com.callbooking.api.model..");
+
+    @ArchTest
+    static final ArchRule applicationDoesNotTouchTheDatabaseDriver = noClasses()
+            .that().resideInAPackage("com.callbooking.application..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("org.springframework.dao..", "org.sqlite..");
 }
