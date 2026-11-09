@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
-import type { Booking, MeetingType, Owner } from '../api/generated';
-import { createMeetingType, listBookings } from '../api/generated';
-import { apiErrorMessage } from '../lib/apiError';
+import type { MeetingType, Owner } from '../data/api';
+import { createMeetingType, fetchUpcomingBookings } from '../data/api';
+import { useResource } from '../data/useResource';
 import {
   formatBookingDayParts,
   formatDuration,
@@ -44,9 +44,13 @@ export function OwnerDashboard({
   const timezoneOffset = useMemo(() => formatTimezoneOffset(timezone), [timezone]);
   const today = todayInZone(timezone);
 
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [bookingsLoading, setBookingsLoading] = useState(true);
-  const [bookingsError, setBookingsError] = useState<string | null>(null);
+  const {
+    data: bookingsData,
+    loading: bookingsLoading,
+    error: bookingsError,
+    reload: reloadBookings,
+  } = useResource(fetchUpcomingBookings, []);
+  const bookings = bookingsData ?? [];
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -61,27 +65,6 @@ export function OwnerDashboard({
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('');
-
-  const loadBookings = useCallback(async () => {
-    setBookingsLoading(true);
-    setBookingsError(null);
-    try {
-      const result = await listBookings({ query: { includePast: false } });
-      if (result.error || !result.data) {
-        setBookingsError(apiErrorMessage(result.error, 'Не удалось загрузить записи.'));
-        return;
-      }
-      setBookings(result.data);
-    } catch {
-      setBookingsError('Сервер недоступен. Проверьте соединение.');
-    } finally {
-      setBookingsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadBookings();
-  }, [loadBookings]);
 
   useEffect(() => {
     if (!createdName) {
@@ -113,14 +96,12 @@ export function OwnerDashboard({
 
     try {
       const result = await createMeetingType({
-        body: {
-          name: name.trim(),
-          description: description.trim(),
-          durationMinutes: duration,
-        },
+        name: name.trim(),
+        description: description.trim(),
+        durationMinutes: duration,
       });
-      if (result.error || !result.data) {
-        setCreateError(apiErrorMessage(result.error, 'Не удалось создать тип встречи.'));
+      if (!result.ok) {
+        setCreateError(result.error.message);
         return;
       }
       onTypeCreated(result.data);
@@ -128,8 +109,6 @@ export function OwnerDashboard({
       setName('');
       setDescription('');
       setDuration(30);
-    } catch {
-      setCreateError('Сервер недоступен. Проверьте соединение.');
     } finally {
       setCreating(false);
     }
@@ -293,7 +272,7 @@ export function OwnerDashboard({
               <button
                 className="secondary-button small"
                 type="button"
-                onClick={() => void loadBookings()}
+                onClick={reloadBookings}
                 disabled={bookingsLoading}
               >
                 <RefreshIcon className={bookingsLoading ? 'spin' : ''} />
@@ -304,7 +283,7 @@ export function OwnerDashboard({
             {bookingsError && (
               <div className="alert alert-error" role="alert">
                 <AlertIcon />
-                <span>{bookingsError}</span>
+                <span>{bookingsError.message}</span>
               </div>
             )}
 

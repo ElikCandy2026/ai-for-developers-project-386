@@ -1,4 +1,4 @@
-.PHONY: install generate contract client check-generated frontend test build verify run dev-backend dev-frontend clean
+.PHONY: install generate contract client check-generated frontend frontend-test frontend-boundary test build verify run dev-backend dev-frontend clean
 
 GENERATED_PATHS = contract/tsp-output frontend/src/api/generated
 
@@ -25,13 +25,22 @@ check-generated: generate
 frontend:
 	cd frontend && npm run build
 
+frontend-test:
+	cd frontend && npm test
+
+frontend-boundary:
+	@if grep -rn "api/generated" frontend/src/App.tsx frontend/src/main.tsx frontend/src/components frontend/src/lib 2>/dev/null; then \
+		echo "UI must import from data/api, not from the generated SDK"; \
+		exit 1; \
+	fi
+
 test: contract
 	cd backend && mvn test
 
 build: generate frontend
 	cd backend && mvn -DskipTests package
 
-verify: check-generated frontend test
+verify: check-generated frontend frontend-test frontend-boundary test
 
 run: build
 	cd backend && mvn spring-boot:run

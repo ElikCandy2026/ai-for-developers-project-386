@@ -10,7 +10,7 @@ backend/target/
 
 # Runtime data
 backend/data/
-data/
+/data/
 *.db
 *.db-shm
 *.db-wal
