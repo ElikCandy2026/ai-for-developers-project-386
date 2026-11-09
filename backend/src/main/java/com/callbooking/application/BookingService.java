@@ -1,21 +1,16 @@
 package com.callbooking.application;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.locks.ReentrantLock;
 
-import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import com.callbooking.domain.Booking;
-import com.callbooking.domain.BookingInterval;
 import com.callbooking.domain.MeetingType;
 import com.callbooking.domain.SchedulingPolicy;
+import com.callbooking.persistence.BookingInsertResult;
 import com.callbooking.persistence.BookingRepository;
 
 @Service
@@ -24,23 +19,14 @@ public class BookingService {
     private final MeetingTypeService meetingTypeService;
     private final BookingRepository bookingRepository;
     private final SchedulingPolicy policy;
-    private final TransactionTemplate transactionTemplate;
-
-    /**
-     * Serializes booking creation inside this application. The SQLite trigger is
-     * the second line of defence and also protects multiple application instances.
-     */
-    private final ReentrantLock bookingLock = new ReentrantLock(true);
 
     public BookingService(
             MeetingTypeService meetingTypeService,
             BookingRepository bookingRepository,
-            SchedulingPolicy policy,
-            PlatformTransactionManager transactionManager) {
+            SchedulingPolicy policy) {
         this.meetingTypeService = meetingTypeService;
         this.bookingRepository = bookingRepository;
         this.policy = policy;
-        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     public Booking create(
@@ -49,46 +35,13 @@ public class BookingService {
             String guestName,
             String guestEmail,
             String notes) {
-        bookingLock.lock();
-        try {
-            return transactionTemplate.execute(status -> createInsideTransaction(
-                    meetingTypeId, start, guestName, guestEmail, notes));
-        } catch (DataAccessException exception) {
-            if (isOverlapConflict(exception)) {
-                throw slotTaken();
-            }
-            throw exception;
-        } finally {
-            bookingLock.unlock();
-        }
-    }
-
-    public List<Booking> list(boolean includePast) {
-        return bookingRepository.findBookings(includePast, policy.now());
-    }
-
-    private Booking createInsideTransaction(
-            String meetingTypeId,
-            Instant requestedStart,
-            String guestName,
-            String guestEmail,
-            String notes) {
         // Syntax (presence, lengths, patterns, email) belongs to Bean Validation
         // generated from the contract. The scheduling policy owns the calendar
-        // semantics; this method only normalises and maps its result to an error.
-        String normalisedGuestName = trim(guestName);
-        String normalisedGuestEmail = trim(guestEmail);
-
+        // semantics; the repository owns the atomic insert and slot conflicts.
         MeetingType meetingType = meetingTypeService.get(meetingTypeId);
         int durationMinutes = meetingType.durationMinutes();
-        Instant start = requestedStart.truncatedTo(ChronoUnit.MILLIS);
-        Instant end = start.plus(Duration.ofMinutes(durationMinutes));
 
-        List<BookingInterval> occupied = bookingRepository.findIntervals(start, end);
-        SchedulingPolicy.SlotCheck check = policy.checkStart(start, durationMinutes, occupied);
-        if (check.status() == SchedulingPolicy.SlotStatus.TAKEN) {
-            throw slotTaken();
-        }
+        SchedulingPolicy.SlotCheck check = policy.checkStart(start, durationMinutes, List.of());
         if (!check.ok()) {
             throw unavailable();
         }
@@ -101,15 +54,21 @@ public class BookingService {
         Booking booking = new Booking(
                 UUID.randomUUID().toString(),
                 meetingTypeService.summary(meetingType),
-                normalisedGuestName,
-                normalisedGuestEmail,
+                trim(guestName),
+                trim(guestEmail),
                 normalisedNotes,
                 check.start(),
                 check.end(),
                 policy.now().truncatedTo(ChronoUnit.MILLIS));
 
-        bookingRepository.insert(booking);
-        return booking;
+        return switch (bookingRepository.tryInsert(booking)) {
+            case BookingInsertResult.Inserted inserted -> inserted.booking();
+            case BookingInsertResult.SlotTaken ignored -> throw slotTaken();
+        };
+    }
+
+    public List<Booking> list(boolean includePast) {
+        return bookingRepository.findBookings(includePast, policy.now());
     }
 
     private ApplicationException unavailable() {
@@ -122,16 +81,6 @@ public class BookingService {
         return ApplicationException.of(
                 ApplicationErrorCode.SLOT_TAKEN,
                 "Это время уже занято другой встречей. Выберите другой слот.");
-    }
-
-    private boolean isOverlapConflict(Throwable exception) {
-        for (Throwable current = exception; current != null; current = current.getCause()) {
-            String message = current.getMessage();
-            if (message != null && message.contains("booking_overlap")) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static String trim(String value) {
