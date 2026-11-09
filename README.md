@@ -128,6 +128,7 @@ TypeScript SDK, который использует фронтенд.
 │       ├── components/           гость, кабинет владельца, диалог записи
 │       ├── data/                 facade над SDK, ApiResult и useResource
 │       └── lib/                  форматирование дат
+├── Dockerfile                    многостадийная сборка образа
 ├── .github/workflows/ci.yml      make install && make verify
 ├── .nvmrc                        версия Node для генерации и сборки
 ├── docs/                         скриншоты
@@ -266,6 +267,23 @@ java -jar target/call-booking-1.0.0.jar
 
 ```bash
 SEED_DEMO_DATA=false java -jar target/call-booking-1.0.0.jar
+```
+
+### Docker
+
+В корне лежит `Dockerfile` с тремя стадиями: Node собирает фронтенд, Maven
+упаковывает jar вместе со статикой, runtime-образ содержит только JRE 21 и jar.
+
+```bash
+docker build -t callbook .
+docker run --rm -e PORT=8080 -p 8080:8080 callbook
+```
+
+Приложение стартует автоматически и слушает порт из `PORT` (по умолчанию
+`8080`). Чтобы сохранить SQLite между перезапусками, смонтируйте `/app/data`:
+
+```bash
+docker run --rm -e PORT=8080 -p 8080:8080 -v callbook-data:/app/data callbook
 ```
 
 Переменные окружения:

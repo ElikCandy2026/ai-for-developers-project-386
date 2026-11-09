@@ -1,0 +1,16 @@
+.git
+.github
+.idea
+.vscode
+
+node_modules
+frontend/dist
+backend/target
+backend/data
+/data
+*.db
+*.db-shm
+*.db-wal
+
+/ref_images
+/docs
