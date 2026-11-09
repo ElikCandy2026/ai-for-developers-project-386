@@ -91,11 +91,11 @@ async function run<T>(
   }
 }
 
-export function fetchOwner(signal?: AbortSignal): Promise<ApiResult<Owner>> {
+function fetchOwner(signal?: AbortSignal): Promise<ApiResult<Owner>> {
   return run(() => getOwner({ signal }), FALLBACK.owner);
 }
 
-export function fetchMeetingTypes(signal?: AbortSignal): Promise<ApiResult<MeetingType[]>> {
+function fetchMeetingTypes(signal?: AbortSignal): Promise<ApiResult<MeetingType[]>> {
   return run(() => listMeetingTypes({ signal }), FALLBACK.meetingTypes);
 }
 

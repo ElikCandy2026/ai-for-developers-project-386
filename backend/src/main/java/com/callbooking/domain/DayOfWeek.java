@@ -16,8 +16,4 @@ public enum DayOfWeek {
     public static DayOfWeek from(java.time.DayOfWeek dayOfWeek) {
         return valueOf(dayOfWeek.name());
     }
-
-    public java.time.DayOfWeek toJavaTime() {
-        return java.time.DayOfWeek.valueOf(name());
-    }
 }

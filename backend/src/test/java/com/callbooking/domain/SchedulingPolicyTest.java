@@ -180,6 +180,17 @@ class SchedulingPolicyTest {
     }
 
     @Test
+    void checkStartRejectsSubMinutePrecision() {
+        LocalDate monday = LocalDate.of(2026, 11, 9);
+        SchedulingPolicy policy = policy();
+
+        assertThat(policy.checkStart(msk(monday, 10, 0).plusMillis(500), 30, List.of()).status())
+                .isEqualTo(SchedulingPolicy.SlotStatus.OFF_GRID);
+        assertThat(policy.checkStart(msk(monday, 10, 0).plusSeconds(30), 30, List.of()).status())
+                .isEqualTo(SchedulingPolicy.SlotStatus.OFF_GRID);
+    }
+
+    @Test
     void checkStartRejectsEveryCalendarBoundary() {
         LocalDate monday = LocalDate.of(2026, 11, 9);
         SchedulingPolicy policy = policy();

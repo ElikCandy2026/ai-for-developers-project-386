@@ -33,7 +33,7 @@ public final class DomainApiMapper {
         return new BookingRules()
                 .timezone(schedule.timezone())
                 .workingDays(schedule.workingDays().stream()
-                        .map(day -> DayOfWeek.valueOf(day.name()))
+                        .map(DomainApiMapper::toApiDayOfWeek)
                         .toList())
                 .workdayStart(schedule.workdayStart().toString())
                 .workdayEnd(schedule.workdayEnd().toString())
@@ -93,7 +93,7 @@ public final class DomainApiMapper {
                 .toList();
         return new AvailabilityDay()
                 .date(day.date())
-                .weekday(DayOfWeek.valueOf(day.weekday().name()))
+                .weekday(toApiDayOfWeek(day.weekday()))
                 .slots(slots);
     }
 
@@ -113,5 +113,9 @@ public final class DomainApiMapper {
         return bookings.stream()
                 .map(DomainApiMapper::toApi)
                 .toList();
+    }
+
+    private static DayOfWeek toApiDayOfWeek(com.callbooking.domain.DayOfWeek day) {
+        return DayOfWeek.valueOf(day.name());
     }
 }

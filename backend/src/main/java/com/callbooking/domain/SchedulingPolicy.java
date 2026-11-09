@@ -7,7 +7,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -67,10 +66,6 @@ public final class SchedulingPolicy {
         return schedule;
     }
 
-    public Clock clock() {
-        return clock;
-    }
-
     /** Current instant, used for timestamps and "upcoming" filters. */
     public Instant now() {
         return clock.instant();
@@ -114,16 +109,16 @@ public final class SchedulingPolicy {
 
         ZoneId zone = schedule.zone();
         LocalTime workdayEnd = schedule.workdayEnd();
-        Instant threshold = window().noticeThreshold();
+        Window window = window();
         List<Slot> slots = new ArrayList<>();
 
         for (LocalTime time = schedule.workdayStart();
                 !time.plusMinutes(durationMinutes).isAfter(workdayEnd);
                 time = time.plusMinutes(schedule.slotStepMinutes())) {
-            Instant start = date.atTime(time).atZone(zone).toInstant();
-            Instant end = start.plus(Duration.ofMinutes(durationMinutes));
-            if (!start.isBefore(threshold) && !overlaps(occupied, start, end)) {
-                slots.add(new Slot(start, end));
+            SlotCheck check = evaluate(
+                    date.atTime(time).atZone(zone).toInstant(), durationMinutes, occupied, window);
+            if (check.ok()) {
+                slots.add(new Slot(check.start(), check.end()));
             }
         }
         return slots;
@@ -138,7 +133,20 @@ public final class SchedulingPolicy {
             Instant requestedStart,
             int durationMinutes,
             List<BookingInterval> occupied) {
-        Instant start = requestedStart.truncatedTo(ChronoUnit.MILLIS);
+        return evaluate(requestedStart, durationMinutes, occupied, window());
+    }
+
+    /**
+     * One place for every calendar rule: sub-minute precision, window, working
+     * day and hours, grid alignment, minimum notice and overlap. Both
+     * {@link #slotsOn} and {@link #checkStart} call it, so availability and
+     * booking cannot drift apart.
+     */
+    private SlotCheck evaluate(
+            Instant start,
+            int durationMinutes,
+            List<BookingInterval> occupied,
+            Window window) {
         Instant end = start.plus(Duration.ofMinutes(durationMinutes));
         LocalDateTime localStart = LocalDateTime.ofInstant(start, schedule.zone());
         LocalDate date = localStart.toLocalDate();
@@ -147,8 +155,6 @@ public final class SchedulingPolicy {
         if (time.getSecond() != 0 || time.getNano() != 0) {
             return new SlotCheck(SlotStatus.OFF_GRID, start, end);
         }
-
-        Window window = window();
         if (date.isBefore(window.startDate()) || date.isAfter(window.endDate())) {
             return new SlotCheck(SlotStatus.OUTSIDE_WINDOW, start, end);
         }

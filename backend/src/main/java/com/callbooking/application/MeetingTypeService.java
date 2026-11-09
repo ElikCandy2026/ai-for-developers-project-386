@@ -41,7 +41,7 @@ public class MeetingTypeService {
         String normalisedName = trim(name);
         String normalisedDescription = trim(description);
 
-        int duration = durationMinutes == null ? 0 : durationMinutes;
+        int duration = durationMinutes;
         if (policy.durationAlignment(duration) != SchedulingPolicy.DurationAlignment.OK) {
             throw ApplicationException.of(
                     ApplicationErrorCode.INVALID_DURATION,

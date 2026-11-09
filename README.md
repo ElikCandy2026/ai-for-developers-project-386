@@ -111,15 +111,15 @@ TypeScript SDK, который использует фронтенд.
 │   └── src/
 │       ├── main/java/com/callbooking/
 │       │   ├── api/              контроллер и обработка ошибок
-│       │   ├── application/      закрытый набор кодов ошибок и ApplicationException
+│       │   ├── application/      use cases и закрытый набор кодов ошибок
 │       │   ├── config/           настройки, SQLite, демо-данные
-│       │   ├── domain/           правила слотов и бронирования
-│       │   └── persistence/      JDBC-репозитории
+│       │   ├── domain/           scheduling policy, правила слотов и бронирования
+│       │   └── persistence/      JDBC-репозитории и атомарная вставка записи
 │       ├── main/resources/
 │       │   ├── application.yml
 │       │   ├── schema.sql
 │       │   └── ValidationMessages.properties
-│       └── test/                 16 интеграционных тестов и drift-тест контракта ошибок
+│       └── test/                 интеграционные, unit- и ArchUnit-тесты
 ├── frontend/                     React + TypeScript + Vite
 │   ├── openapi-ts.config.ts      генерация SDK
 │   ├── dist/                     собранная статика (не в git)

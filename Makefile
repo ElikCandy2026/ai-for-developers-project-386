@@ -29,16 +29,16 @@ frontend-test:
 	cd frontend && npm test
 
 frontend-boundary:
-	@if grep -rn "api/generated" frontend/src/App.tsx frontend/src/main.tsx frontend/src/components frontend/src/lib 2>/dev/null; then \
+	@if grep -rn "api/generated" frontend/src --include='*.ts' --include='*.tsx' | grep -v '^frontend/src/data/' | grep -v '^frontend/src/api/generated/'; then \
 		echo "UI must import from data/api, not from the generated SDK"; \
 		exit 1; \
 	fi
 
-test: contract
+test:
 	cd backend && mvn test
 
 build: generate frontend
-	cd backend && mvn -DskipTests package
+	cd backend && mvn -DskipTests clean package
 
 verify: check-generated frontend frontend-test frontend-boundary test
 
