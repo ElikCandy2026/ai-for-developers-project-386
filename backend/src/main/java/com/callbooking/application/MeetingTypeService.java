@@ -9,17 +9,18 @@ import org.springframework.stereotype.Service;
 
 import com.callbooking.domain.MeetingType;
 import com.callbooking.domain.MeetingTypeSummary;
+import com.callbooking.domain.SchedulingPolicy;
 import com.callbooking.persistence.MeetingTypeRepository;
 
 @Service
 public class MeetingTypeService {
 
-    private static final int DURATION_ALIGNMENT_MINUTES = 15;
-
     private final MeetingTypeRepository repository;
+    private final SchedulingPolicy policy;
 
-    public MeetingTypeService(MeetingTypeRepository repository) {
+    public MeetingTypeService(MeetingTypeRepository repository, SchedulingPolicy policy) {
         this.repository = repository;
+        this.policy = policy;
     }
 
     public List<MeetingType> list() {
@@ -41,13 +42,14 @@ public class MeetingTypeService {
         String normalisedDescription = trim(description);
 
         int duration = durationMinutes == null ? 0 : durationMinutes;
-        if (duration % DURATION_ALIGNMENT_MINUTES != 0) {
+        if (policy.durationAlignment(duration) != SchedulingPolicy.DurationAlignment.OK) {
             throw ApplicationException.of(
                     ApplicationErrorCode.INVALID_DURATION,
-                    "Длительность должна быть кратна " + DURATION_ALIGNMENT_MINUTES + " минутам.");
+                    "Длительность должна быть кратна "
+                            + SchedulingPolicy.DURATION_ALIGNMENT_MINUTES + " минутам.");
         }
 
-        Instant createdAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        Instant createdAt = policy.now().truncatedTo(ChronoUnit.MILLIS);
         MeetingType meetingType = new MeetingType(
                 UUID.randomUUID().toString(),
                 normalisedName,

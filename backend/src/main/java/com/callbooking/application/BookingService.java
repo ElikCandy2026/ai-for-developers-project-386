@@ -2,10 +2,6 @@ package com.callbooking.application;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -17,9 +13,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.callbooking.domain.Booking;
-import com.callbooking.domain.BookingRules;
-import com.callbooking.domain.DayOfWeek;
+import com.callbooking.domain.BookingInterval;
 import com.callbooking.domain.MeetingType;
+import com.callbooking.domain.SchedulingPolicy;
 import com.callbooking.persistence.BookingRepository;
 
 @Service
@@ -27,7 +23,7 @@ public class BookingService {
 
     private final MeetingTypeService meetingTypeService;
     private final BookingRepository bookingRepository;
-    private final OwnerService ownerService;
+    private final SchedulingPolicy policy;
     private final TransactionTemplate transactionTemplate;
 
     /**
@@ -39,11 +35,11 @@ public class BookingService {
     public BookingService(
             MeetingTypeService meetingTypeService,
             BookingRepository bookingRepository,
-            OwnerService ownerService,
+            SchedulingPolicy policy,
             PlatformTransactionManager transactionManager) {
         this.meetingTypeService = meetingTypeService;
         this.bookingRepository = bookingRepository;
-        this.ownerService = ownerService;
+        this.policy = policy;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -68,7 +64,7 @@ public class BookingService {
     }
 
     public List<Booking> list(boolean includePast) {
-        return bookingRepository.findBookings(includePast, Instant.now());
+        return bookingRepository.findBookings(includePast, policy.now());
     }
 
     private Booking createInsideTransaction(
@@ -78,54 +74,23 @@ public class BookingService {
             String guestEmail,
             String notes) {
         // Syntax (presence, lengths, patterns, email) belongs to Bean Validation
-        // generated from the contract. This method owns only the scheduling
-        // semantics and normalisation.
+        // generated from the contract. The scheduling policy owns the calendar
+        // semantics; this method only normalises and maps its result to an error.
         String normalisedGuestName = trim(guestName);
         String normalisedGuestEmail = trim(guestEmail);
 
         MeetingType meetingType = meetingTypeService.get(meetingTypeId);
-        BookingRules rules = ownerService.getOwner().rules();
-        ZoneId zone = rules.zone();
-
-        Instant start = requestedStart.truncatedTo(ChronoUnit.MILLIS);
-        LocalDateTime localStart = LocalDateTime.ofInstant(start, zone);
-        LocalDate date = localStart.toLocalDate();
-        LocalTime time = localStart.toLocalTime();
         int durationMinutes = meetingType.durationMinutes();
-
-        if (time.getSecond() != 0 || time.getNano() != 0) {
-            throw unavailable();
-        }
-
-        LocalDate windowStart = LocalDate.now(zone).plusDays(rules.bookingWindowStartOffsetDays());
-        LocalDate windowEnd = windowStart.plusDays(rules.bookingWindowDays() - 1L);
-        if (date.isBefore(windowStart) || date.isAfter(windowEnd)) {
-            throw unavailable();
-        }
-
-        if (!rules.isWorkingDay(DayOfWeek.from(date.getDayOfWeek()))) {
-            throw unavailable();
-        }
-
-        LocalTime workdayStart = rules.workdayStart();
-        LocalTime workdayEnd = rules.workdayEnd();
-        if (time.isBefore(workdayStart) || time.plusMinutes(durationMinutes).isAfter(workdayEnd)) {
-            throw unavailable();
-        }
-
-        long minutesFromWorkdayStart = Duration.between(workdayStart, time).toMinutes();
-        if (minutesFromWorkdayStart < 0 || minutesFromWorkdayStart % rules.slotStepMinutes() != 0) {
-            throw unavailable();
-        }
-
-        Instant threshold = Instant.now().plus(Duration.ofMinutes(rules.minimumNoticeMinutes()));
-        if (start.isBefore(threshold)) {
-            throw unavailable();
-        }
-
+        Instant start = requestedStart.truncatedTo(ChronoUnit.MILLIS);
         Instant end = start.plus(Duration.ofMinutes(durationMinutes));
-        if (bookingRepository.existsOverlap(start, end)) {
+
+        List<BookingInterval> occupied = bookingRepository.findIntervals(start, end);
+        SchedulingPolicy.SlotCheck check = policy.checkStart(start, durationMinutes, occupied);
+        if (check.status() == SchedulingPolicy.SlotStatus.TAKEN) {
             throw slotTaken();
+        }
+        if (!check.ok()) {
+            throw unavailable();
         }
 
         String normalisedNotes = notes == null ? null : notes.trim();
@@ -139,9 +104,9 @@ public class BookingService {
                 normalisedGuestName,
                 normalisedGuestEmail,
                 normalisedNotes,
-                start,
-                end,
-                Instant.now().truncatedTo(ChronoUnit.MILLIS));
+                check.start(),
+                check.end(),
+                policy.now().truncatedTo(ChronoUnit.MILLIS));
 
         bookingRepository.insert(booking);
         return booking;
