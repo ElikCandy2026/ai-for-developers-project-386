@@ -2,14 +2,14 @@ package com.callbooking.persistence;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import com.callbooking.api.ApiTime;
-import com.callbooking.api.model.MeetingType;
+import com.callbooking.domain.MeetingType;
 
 @Repository
 public class MeetingTypeRepository {
@@ -43,11 +43,11 @@ public class MeetingTypeRepository {
                         INSERT INTO meeting_types (id, name, description, duration_minutes, created_at_ms)
                         VALUES (?, ?, ?, ?, ?)
                         """,
-                meetingType.getId(),
-                meetingType.getName(),
-                meetingType.getDescription(),
-                meetingType.getDurationMinutes(),
-                ApiTime.instant(meetingType.getCreatedAt()).toEpochMilli());
+                meetingType.id(),
+                meetingType.name(),
+                meetingType.description(),
+                meetingType.durationMinutes(),
+                meetingType.createdAt().toEpochMilli());
     }
 
     public int count() {
@@ -56,11 +56,11 @@ public class MeetingTypeRepository {
     }
 
     private MeetingType map(ResultSet rs, int rowNum) throws SQLException {
-        return new MeetingType()
-                .id(rs.getString("id"))
-                .name(rs.getString("name"))
-                .description(rs.getString("description"))
-                .durationMinutes(rs.getInt("duration_minutes"))
-                .createdAt(ApiTime.utc(java.time.Instant.ofEpochMilli(rs.getLong("created_at_ms"))));
+        return new MeetingType(
+                rs.getString("id"),
+                rs.getString("name"),
+                rs.getString("description"),
+                rs.getInt("duration_minutes"),
+                Instant.ofEpochMilli(rs.getLong("created_at_ms")));
     }
 }
