@@ -5,8 +5,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import com.callbooking.api.model.CreateMeetingTypeRequest;
-import com.callbooking.domain.MeetingTypeService;
+import com.callbooking.application.MeetingTypeService;
 import com.callbooking.persistence.MeetingTypeRepository;
 
 /**
@@ -31,17 +30,17 @@ public class DemoDataSeeder implements ApplicationRunner {
         if (repository.count() > 0) {
             return;
         }
-        meetingTypeService.create(new CreateMeetingTypeRequest()
-                .name("Быстрый вопрос")
-                .description("Пятнадцатиминутный звонок для короткого вопроса.")
-                .durationMinutes(15));
-        meetingTypeService.create(new CreateMeetingTypeRequest()
-                .name("Знакомство")
-                .description("Короткий звонок, чтобы познакомиться и обсудить задачу.")
-                .durationMinutes(30));
-        meetingTypeService.create(new CreateMeetingTypeRequest()
-                .name("Консультация")
-                .description("Подробный разбор вопроса и совместный план действий.")
-                .durationMinutes(60));
+        meetingTypeService.create(
+                "Быстрый вопрос",
+                "Пятнадцатиминутный звонок для короткого вопроса.",
+                15);
+        meetingTypeService.create(
+                "Знакомство",
+                "Короткий звонок, чтобы познакомиться и обсудить задачу.",
+                30);
+        meetingTypeService.create(
+                "Консультация",
+                "Подробный разбор вопроса и совместный план действий.",
+                60);
     }
 }
