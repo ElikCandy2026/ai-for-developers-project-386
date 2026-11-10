@@ -3,6 +3,8 @@ node_modules/
 frontend/node_modules/
 contract/node_modules/
 frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
 backend/src/main/resources/static/
 
 # Maven

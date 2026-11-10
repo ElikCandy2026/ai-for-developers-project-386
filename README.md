@@ -242,8 +242,8 @@ cd ai-for-developers-project-386
 make install
 ```
 
-`make install` устанавливает зависимости контракта и фронтенда. Зависимости
-backend Maven скачает при сборке.
+`make install` устанавливает зависимости контракта и фронтенда, а также скачивает
+Chromium для Playwright. Зависимости backend Maven скачает при сборке.
 
 ## Использование
 
@@ -375,6 +375,20 @@ mvn test
 Отдельный drift-тест сверяет `ApplicationErrorCode` с enum'ами, сгенерированными
 из TypeSpec, и не даёт наборам кодов разойтись.
 
+### Браузерный тест
+
+```bash
+make e2e
+```
+
+`make e2e` собирает фронтенд и jar, поднимает настоящее приложение на порту
+`4173` с чистой SQLite-базой и демо-типами встреч, затем запускает Playwright.
+API не подменяется: тест открывает главную страницу, выбирает тип «Знакомство»,
+первый свободный слот, заполняет имя и email, отправляет форму и ждёт
+подтверждение. После этого он проверяет через API, что запись сохранена, а
+занятый слот больше не предлагается. Браузер скачивается командой
+`make e2e-install` (её же вызывает `make install`).
+
 Полная проверка контракта, генерации, фронтенда и тестов:
 
 ```bash
@@ -384,13 +398,13 @@ make verify
 `make verify` — единственная точка входа для проверки. Он выполняет
 `make check-generated` (свежесть OpenAPI/SDK), запускает линтер (`eslint` и
 `tsc --noEmit`), собирает фронтенд, запускает vitest и проверку границы
-импортов, затем backend-тесты. CI использует Node 22 и
+импортов, затем backend-тесты и браузерный e2e-тест. CI использует Node 22 и
 Java 21 и запускает ту же команду (`make install && make verify`), поэтому
 «зелено локально» означает «зелено в CI».
 
 | Команда | Что делает |
 | --- | --- |
-| `make install` | `npm ci` в `contract` и `frontend` |
+| `make install` | `npm ci` в `contract` и `frontend` + Chromium для Playwright |
 | `make generate` | TypeSpec → OpenAPI → TypeScript SDK |
 | `make check-generated` | падает при расхождении OpenAPI/SDK с контрактом |
 | `make frontend` | сборка фронтенда в `frontend/dist` |
@@ -398,8 +412,10 @@ Java 21 и запускает ту же команду (`make install && make ve
 | `make frontend-boundary` | grep-проверка: UI не импортирует generated SDK |
 | `make lint` | статические проверки: ESLint и `tsc --noEmit` |
 | `make test` | backend-тесты (без сборки фронтенда) |
+| `make e2e-install` | скачать Chromium для Playwright |
+| `make e2e` | браузерный e2e-тест на собранном приложении и чистой базе |
 | `make build` | генерация, фронтенд и jar с фронтендом внутри |
-| `make verify` | `check-generated` + линтер + фронтенд + vitest + граница + тесты |
+| `make verify` | `check-generated` + линтер + фронтенд + vitest + граница + тесты + e2e |
 | `make run` | сборка и запуск приложения |
 | `make clean` | удаляет `backend/target` и `frontend/dist` |
 

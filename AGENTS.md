@@ -7,14 +7,16 @@ truth; CI runs `make install && make verify`.
 
 | Command | Purpose |
 | --- | --- |
-| `make install` | Install `contract` and `frontend` dependencies (`npm ci`) |
+| `make install` | Install `contract` and `frontend` dependencies (`npm ci`) and the Playwright browser |
 | `make run` | Build the project and start it at <http://localhost:8080> |
 | `make dev-backend` | Run the Spring Boot backend without rebuilding the frontend |
 | `make dev-frontend` | Run the Vite dev server for the frontend |
 | `make test` | Backend tests (JUnit and ArchUnit) |
 | `make frontend-test` | Frontend tests (vitest) |
 | `make lint` | Static checks: ESLint and TypeScript (`tsc --noEmit`) |
-| `make verify` | Full pre-commit gate: generated files, lint, frontend build, tests, boundary |
+| `make e2e` | Playwright browser test against the packaged app on a clean database |
+| `make e2e-install` | Download the Playwright Chromium browser |
+| `make verify` | Full pre-commit gate: generated files, lint, frontend build and tests, browser e2e, backend tests, boundary |
 
 `make generate` regenerates OpenAPI and the TypeScript SDK from `contract/main.tsp`;
 `make check-generated` fails when the committed generated files are stale.

@@ -1,10 +1,11 @@
-.PHONY: install generate contract client check-generated frontend frontend-test frontend-boundary lint test build verify run dev-backend dev-frontend clean
+.PHONY: install generate contract client check-generated frontend frontend-test frontend-boundary lint test e2e e2e-install build verify run dev-backend dev-frontend clean
 
 GENERATED_PATHS = contract/tsp-output frontend/src/api/generated
 
 install:
 	cd contract && npm ci
 	cd frontend && npm ci
+	cd frontend && npm run e2e:install
 
 contract:
 	cd contract && npm run compile
@@ -41,10 +42,17 @@ lint:
 test:
 	cd backend && mvn test
 
+e2e-install:
+	cd frontend && npm run e2e:install
+
+e2e: frontend
+	cd backend && mvn -DskipTests package
+	cd frontend && npm run test:e2e
+
 build: generate frontend
 	cd backend && mvn -DskipTests clean package
 
-verify: check-generated lint frontend frontend-test frontend-boundary test
+verify: check-generated lint frontend frontend-test frontend-boundary test e2e
 
 run: build
 	cd backend && mvn spring-boot:run

@@ -17,5 +17,5 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "openapi-ts.config.ts", "vite.config.ts"]
+  "include": ["src", "e2e", "openapi-ts.config.ts", "vite.config.ts", "playwright.config.ts"]
 }
