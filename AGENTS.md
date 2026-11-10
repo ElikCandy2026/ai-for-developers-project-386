@@ -18,8 +18,15 @@ truth; CI runs `make install && make verify`.
 | `make e2e-install` | Download the Playwright Chromium browser |
 | `make verify` | Full pre-commit gate: generated files, lint, frontend build and tests, browser e2e, backend tests, boundary |
 
-`make generate` regenerates OpenAPI and the TypeScript SDK from `contract/main.tsp`;
-`make check-generated` fails when the committed generated files are stale.
+## Generated files
+
+Two committed trees are generated and never edited by hand:
+
+- `contract/tsp-output/` — OpenAPI emitted from `contract/main.tsp`.
+- `frontend/src/api/generated/` — TypeScript SDK generated from that OpenAPI.
+
+Change them only with `make generate`. `make check-generated` fails when they are
+stale relative to the contract.
 
 ## Agent skills
 
