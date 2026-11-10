@@ -394,7 +394,7 @@ Java 21 и запускает ту же команду (`make install && make ve
 | `make generate` | TypeSpec → OpenAPI → TypeScript SDK |
 | `make check-generated` | падает при расхождении OpenAPI/SDK с контрактом |
 | `make frontend` | сборка фронтенда в `frontend/dist` |
-| `make frontend-test` | тесты маппинга ошибок (vitest) |
+| `make frontend-test` | frontend-тесты (vitest) |
 | `make frontend-boundary` | grep-проверка: UI не импортирует generated SDK |
 | `make lint` | статические проверки: ESLint и `tsc --noEmit` |
 | `make test` | backend-тесты (без сборки фронтенда) |
