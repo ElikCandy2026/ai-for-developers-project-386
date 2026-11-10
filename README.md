@@ -15,6 +15,15 @@
 генерируются OpenAPI-спецификация, серверные интерфейсы/модели Spring и
 TypeScript SDK, который использует фронтенд.
 
+## Демо
+
+Приложение развёрнуто на Render: <https://ai-for-developers-project-386-izjw.onrender.com>
+
+Бесплатный инстанс засыпает после простоя, поэтому первый запрос может занять до
+минуты. SQLite на бесплатном плане живёт на эфемерном диске — данные
+сбрасываются при перезапуске, редеплое и пробуждении. Подробнее: [Данные на
+Render](#данные-на-render).
+
 ![Страница гостя](docs/guest.png)
 
 ![Кабинет владельца](docs/owner.png)
@@ -129,9 +138,10 @@ TypeScript SDK, который использует фронтенд.
 │       ├── data/                 facade над SDK, ApiResult и useResource
 │       └── lib/                  форматирование дат
 ├── Dockerfile                    многостадийная сборка образа
+├── opencode.json                 безопасная MCP-конфигурация Render
 ├── .github/workflows/ci.yml      make install && make verify
 ├── .nvmrc                        версия Node для генерации и сборки
-├── docs/                         скриншоты
+├── docs/                         скриншоты и инструкции для агентов
 ├── Makefile
 └── README.md
 ```
@@ -285,6 +295,34 @@ docker run --rm -e PORT=8080 -p 8080:8080 callbook
 ```bash
 docker run --rm -e PORT=8080 -p 8080:8080 -v callbook-data:/app/data callbook
 ```
+
+### Render
+
+Публичный стенд: <https://ai-for-developers-project-386-izjw.onrender.com>
+
+Сервис `ai-for-developers-project-386` создан через Render MCP: runtime Docker,
+`./Dockerfile`, ветка `main`, free plan, регион Frankfurt. Render сам передаёт
+`PORT`, приложение читает его из `server.port`. Пуш в `main` запускает
+автодеплой; история деплоев и логи доступны в
+[Render Dashboard](https://dashboard.render.com/web/srv-dbom4gs9v7es73fn429g).
+
+Конфигурация MCP для OpenCode лежит в `opencode.json`, инструкция — в
+[`docs/agents/render.md`](docs/agents/render.md). Ключ Render передаётся только
+через переменную окружения `RENDER_API_KEY` и в репозиторий не попадает; вход
+через OAuth тоже поддерживается.
+
+### Данные на Render
+
+**Да, данные сбрасываются.** На бесплатном плане Render файловая система
+контейнера эфемерная: SQLite-файл `/app/data/call-booking.db` теряется при
+каждом перезапуске, редеплое и пробуждении после простоя. После старта
+приложение создаёт пустую схему заново и, если `SEED_DEMO_DATA=true`, добавляет
+три демонстрационных типа встреч. Записи гостей и созданные типы, которых нет в
+демо-наборе, не сохраняются.
+
+Для постоянного хранения нужен платный инстанс с Render Disk, смонтированным в
+`/app/data`, либо внешняя база. В локальном Docker данные сохраняются, если
+смонтировать volume, как показано выше.
 
 Переменные окружения:
 

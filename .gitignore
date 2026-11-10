@@ -23,3 +23,8 @@ backend/data/
 
 # Logs
 *.log
+
+# Local secrets
+.env
+.env.*
+!.env.example
