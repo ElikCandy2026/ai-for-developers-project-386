@@ -49,6 +49,14 @@ the commit finishes the ticket. Work that belongs to a wayfinder map rather than
 single ticket uses `Part of #<n>`. Commits without a ticket reference are not
 accepted. Old history is not rewritten.
 
+### Releases
+
+`release-please` (`.github/workflows/release-please.yml`) runs on pushes to `main`
+and opens or updates a release PR from Conventional Commits. It owns
+`CHANGELOG.md`, `version.txt` and `.release-please-manifest.json`; do not edit
+them by hand outside a release PR. Merging the release PR publishes the tag and
+the GitHub Release.
+
 ### Domain docs
 
 Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

@@ -419,6 +419,20 @@ Java 21 и запускает ту же команду (`make install && make ve
 | `make run` | сборка и запуск приложения |
 | `make clean` | удаляет `backend/target` и `frontend/dist` |
 
+## Релизы
+
+Коммиты в `main` следуют Conventional Commits: `feat` поднимает minor, `fix` —
+patch, а `!` или `BREAKING CHANGE` — major. Отдельный workflow
+`release-please` (`.github/workflows/release-please.yml`, настройки в
+`release-please-config.json` и `.release-please-manifest.json`) на каждый push в
+`main` открывает или обновляет release-PR с новой версией, `CHANGELOG.md` и
+`version.txt`. Ручные правки этих файлов вне release-PR не нужны: слияние PR
+создаёт тег и GitHub Release.
+
+PR создаётся от `GITHUB_TOKEN`, поэтому GitHub не запускает на нём остальные
+workflow. Если нужны проверки на самом release-PR, workflow нужно перевести на
+отдельный PAT-секрет.
+
 ## Как обеспечена защита от двойной записи
 
 Используются три уровня:
