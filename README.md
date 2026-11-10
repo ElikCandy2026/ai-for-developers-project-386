@@ -395,6 +395,7 @@ Java 21 и запускает ту же команду (`make install && make ve
 | `make frontend` | сборка фронтенда в `frontend/dist` |
 | `make frontend-test` | тесты маппинга ошибок (vitest) |
 | `make frontend-boundary` | grep-проверка: UI не импортирует generated SDK |
+| `make lint` | статические проверки: `tsc --noEmit` и граница data-слоя |
 | `make test` | backend-тесты (без сборки фронтенда) |
 | `make build` | генерация, фронтенд и jar с фронтендом внутри |
 | `make verify` | `check-generated` + фронтенд + vitest + граница + тесты |
