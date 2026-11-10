@@ -1,4 +1,4 @@
-.PHONY: install generate contract client check-generated frontend frontend-test frontend-boundary test build verify run dev-backend dev-frontend clean
+.PHONY: install generate contract client check-generated frontend frontend-test frontend-boundary lint test build verify run dev-backend dev-frontend clean
 
 GENERATED_PATHS = contract/tsp-output frontend/src/api/generated
 
@@ -33,6 +33,9 @@ frontend-boundary:
 		echo "UI must import from data/api, not from the generated SDK"; \
 		exit 1; \
 	fi
+
+lint: frontend-boundary
+	cd frontend && npm run typecheck
 
 test:
 	cd backend && mvn test
