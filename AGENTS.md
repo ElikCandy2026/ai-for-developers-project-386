@@ -13,8 +13,8 @@ truth; CI runs `make install && make verify`.
 | `make dev-frontend` | Run the Vite dev server for the frontend |
 | `make test` | Backend tests (JUnit and ArchUnit) |
 | `make frontend-test` | Frontend tests (vitest) |
-| `make lint` | Static checks: TypeScript (`tsc --noEmit`) and the data-layer boundary |
-| `make verify` | Full pre-commit gate: generated files, frontend build, tests, boundary |
+| `make lint` | Static checks: ESLint and TypeScript (`tsc --noEmit`) |
+| `make verify` | Full pre-commit gate: generated files, lint, frontend build, tests, boundary |
 
 `make generate` regenerates OpenAPI and the TypeScript SDK from `contract/main.tsp`;
 `make check-generated` fails when the committed generated files are stale.

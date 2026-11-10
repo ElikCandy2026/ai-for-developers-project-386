@@ -382,8 +382,9 @@ make verify
 ```
 
 `make verify` — единственная точка входа для проверки. Он выполняет
-`make check-generated` (свежесть OpenAPI/SDK), собирает фронтенд, запускает
-vitest и проверку границы импортов, затем backend-тесты. CI использует Node 22 и
+`make check-generated` (свежесть OpenAPI/SDK), запускает линтер (`eslint` и
+`tsc --noEmit`), собирает фронтенд, запускает vitest и проверку границы
+импортов, затем backend-тесты. CI использует Node 22 и
 Java 21 и запускает ту же команду (`make install && make verify`), поэтому
 «зелено локально» означает «зелено в CI».
 
@@ -395,10 +396,10 @@ Java 21 и запускает ту же команду (`make install && make ve
 | `make frontend` | сборка фронтенда в `frontend/dist` |
 | `make frontend-test` | тесты маппинга ошибок (vitest) |
 | `make frontend-boundary` | grep-проверка: UI не импортирует generated SDK |
-| `make lint` | статические проверки: `tsc --noEmit` и граница data-слоя |
+| `make lint` | статические проверки: ESLint и `tsc --noEmit` |
 | `make test` | backend-тесты (без сборки фронтенда) |
 | `make build` | генерация, фронтенд и jar с фронтендом внутри |
-| `make verify` | `check-generated` + фронтенд + vitest + граница + тесты |
+| `make verify` | `check-generated` + линтер + фронтенд + vitest + граница + тесты |
 | `make run` | сборка и запуск приложения |
 | `make clean` | удаляет `backend/target` и `frontend/dist` |
 

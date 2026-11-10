@@ -34,7 +34,8 @@ frontend-boundary:
 		exit 1; \
 	fi
 
-lint: frontend-boundary
+lint:
+	cd frontend && npm run lint
 	cd frontend && npm run typecheck
 
 test:
@@ -43,7 +44,7 @@ test:
 build: generate frontend
 	cd backend && mvn -DskipTests clean package
 
-verify: check-generated frontend frontend-test frontend-boundary test
+verify: check-generated lint frontend frontend-test frontend-boundary test
 
 run: build
 	cd backend && mvn spring-boot:run
